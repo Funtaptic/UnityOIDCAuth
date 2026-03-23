@@ -1,0 +1,5 @@
+<dependencies>
+  <androidPackages>
+    <androidPackage spec="androidx.browser:browser:1.10.0-rc01" />
+  </androidPackages>
+</dependencies>
