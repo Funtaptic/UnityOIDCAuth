@@ -1,5 +1,6 @@
 using System;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
@@ -60,7 +61,19 @@ namespace Funtaptic.OIDC.IOS
                     });
                 });
 
-                StartNativeAuthenticationSession(options.StartUrl, Scheme, NativeCallback);
+                var startUrl = NormalizeStartUrl(options?.StartUrl);
+                if (string.IsNullOrEmpty(startUrl))
+                {
+                    ClearCompletionSource(completionSource);
+                    return new BrowserResult
+                    {
+                        ResultType = BrowserResultType.UnknownError,
+                        Error = "Missing iOS authentication start URL."
+                    };
+                }
+
+                Debug.Log($"Starting iOS OIDC authentication session. Start URL length: {startUrl.Length}");
+                StartNativeAuthenticationSession(startUrl, Scheme, NativeCallback);
                 return await completionSource.Task;
             }
             catch (Exception e)
@@ -75,11 +88,24 @@ namespace Funtaptic.OIDC.IOS
             }
         }
 
+        private static string NormalizeStartUrl(string startUrl)
+        {
+            if (string.IsNullOrWhiteSpace(startUrl))
+                return startUrl;
+
+            startUrl = startUrl.Trim();
+
+            if (Uri.TryCreate(startUrl, UriKind.Absolute, out var uri))
+                return uri.AbsoluteUri;
+
+            return Uri.EscapeUriString(startUrl);
+        }
+
 #if UNITY_IOS && !UNITY_EDITOR
         [DllImport("__Internal", CallingConvention = CallingConvention.Cdecl)]
         private static extern void FuntapticOIDCStartAuthenticationSession(
-            string startUrl,
-            string callbackScheme,
+            IntPtr startUrl,
+            IntPtr callbackScheme,
             AuthenticationSessionCallback callback);
 
         [DllImport("__Internal", CallingConvention = CallingConvention.Cdecl)]
@@ -90,12 +116,38 @@ namespace Funtaptic.OIDC.IOS
             string callbackScheme,
             AuthenticationSessionCallback callback)
         {
-            FuntapticOIDCStartAuthenticationSession(startUrl, callbackScheme, callback);
+            var startUrlPointer = IntPtr.Zero;
+            var callbackSchemePointer = IntPtr.Zero;
+
+            try
+            {
+                startUrlPointer = StringToUtf8Pointer(startUrl);
+                callbackSchemePointer = StringToUtf8Pointer(callbackScheme);
+
+                FuntapticOIDCStartAuthenticationSession(startUrlPointer, callbackSchemePointer, callback);
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(startUrlPointer);
+                Marshal.FreeHGlobal(callbackSchemePointer);
+            }
         }
 
         private static void CancelNativeAuthenticationSession()
         {
             FuntapticOIDCCancelAuthenticationSession();
+        }
+
+        private static IntPtr StringToUtf8Pointer(string value)
+        {
+            if (value == null)
+                return IntPtr.Zero;
+
+            var bytes = Encoding.UTF8.GetBytes(value);
+            var pointer = Marshal.AllocHGlobal(bytes.Length + 1);
+            Marshal.Copy(bytes, 0, pointer, bytes.Length);
+            Marshal.WriteByte(pointer, bytes.Length, 0);
+            return pointer;
         }
 #else
         private static void StartNativeAuthenticationSession(

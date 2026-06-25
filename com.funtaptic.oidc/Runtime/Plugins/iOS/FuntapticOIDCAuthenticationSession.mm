@@ -51,6 +51,23 @@ static ASWebAuthenticationSession *funtapticOIDCSession = nil;
 static FuntapticOIDCAuthenticationSessionDelegate *funtapticOIDCSessionDelegate = nil;
 static FuntapticOIDCAuthenticationCallback funtapticOIDCCallback = nil;
 
+static NSURL *FuntapticOIDCCreateURL(NSString *urlString)
+{
+    NSString *trimmedUrlString = [urlString stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
+    if (trimmedUrlString.length == 0)
+        return nil;
+
+    NSURL *url = [NSURL URLWithString:trimmedUrlString];
+    if (url != nil)
+        return url;
+
+    NSMutableCharacterSet *allowedCharacters = [NSCharacterSet.URLQueryAllowedCharacterSet mutableCopy];
+    [allowedCharacters removeCharactersInString:@"%#[]{}\"<>\\^`|"];
+
+    NSString *encodedUrlString = [trimmedUrlString stringByAddingPercentEncodingWithAllowedCharacters:allowedCharacters];
+    return encodedUrlString != nil ? [NSURL URLWithString:encodedUrlString] : nil;
+}
+
 static void FuntapticOIDCComplete(const char *url, const char *error)
 {
     FuntapticOIDCAuthenticationCallback callback = funtapticOIDCCallback;
@@ -67,6 +84,9 @@ extern "C" void FuntapticOIDCStartAuthenticationSession(
     const char *callbackScheme,
     FuntapticOIDCAuthenticationCallback callback)
 {
+    NSString *startUrlString = startUrl != nil ? [NSString stringWithUTF8String:startUrl] : nil;
+    NSString *callbackSchemeString = callbackScheme != nil ? [NSString stringWithUTF8String:callbackScheme] : nil;
+
     dispatch_async(dispatch_get_main_queue(), ^{
         if (@available(iOS 12.0, *))
         {
@@ -75,13 +95,12 @@ extern "C" void FuntapticOIDCStartAuthenticationSession(
             if (funtapticOIDCSession != nil)
                 [funtapticOIDCSession cancel];
 
-            NSString *startUrlString = startUrl != nil ? [NSString stringWithUTF8String:startUrl] : nil;
-            NSString *callbackSchemeString = callbackScheme != nil ? [NSString stringWithUTF8String:callbackScheme] : nil;
-            NSURL *url = startUrlString != nil ? [NSURL URLWithString:startUrlString] : nil;
+            NSURL *url = FuntapticOIDCCreateURL(startUrlString);
 
             if (url == nil)
             {
-                FuntapticOIDCComplete("", "Invalid start URL.");
+                NSLog(@"Funtaptic OIDC failed to create NSURL from start URL: %@", startUrlString);
+                FuntapticOIDCComplete("", "Invalid start URL. Check device logs for the Funtaptic OIDC start URL.");
                 return;
             }
 
