@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Duende.IdentityModel.Client;
 using Duende.IdentityModel.OidcClient;
 using Funtaptic.OIDC.Android;
+using Funtaptic.OIDC.IOS;
 using Funtaptic.OIDC.Standalone.Funtaptic.OIDC.Auth;
 using UnityEngine;
 
@@ -146,6 +147,13 @@ namespace Funtaptic.OIDC
                     clientOptions.RedirectUri = $"{AndroidChromeTabsBrowser.Scheme}://login_callback";
                     clientOptions.PostLogoutRedirectUri = $"{AndroidChromeTabsBrowser.Scheme}://logout_callback";
                     clientOptions.Browser = new AndroidChromeTabsBrowser();
+                    break;
+                }
+                case RuntimePlatform.IPhonePlayer:
+                {
+                    clientOptions.RedirectUri = $"{IOSAuthenticationSessionBrowser.Scheme}://login_callback";
+                    clientOptions.PostLogoutRedirectUri = $"{IOSAuthenticationSessionBrowser.Scheme}://logout_callback";
+                    clientOptions.Browser = new IOSAuthenticationSessionBrowser();
                     break;
                 }
                 default:
