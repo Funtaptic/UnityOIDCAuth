@@ -169,6 +169,7 @@ namespace Funtaptic.OIDC
                 State.Dispose();
 
             State = b;
+            State?.Update();
             StateChanged?.Invoke(State);
         }
     }
