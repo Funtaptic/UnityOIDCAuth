@@ -30,6 +30,8 @@ namespace Funtaptic.OIDC
 
         public IAuthState State { get; private set; }
 
+        public event Action<IAuthState> StateChanged;
+        
         public void DeleteCache()
         {
             File.Delete(CacheFilePath);
@@ -167,6 +169,7 @@ namespace Funtaptic.OIDC
                 State.Dispose();
 
             State = b;
+            StateChanged?.Invoke(State);
         }
     }
 }
