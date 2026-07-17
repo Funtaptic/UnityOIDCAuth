@@ -2,6 +2,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Duende.IdentityModel.OidcClient;
+using Duende.IdentityModel.OidcClient.Results;
 using UnityEngine;
 
 namespace Funtaptic.OIDC
@@ -34,6 +35,29 @@ namespace Funtaptic.OIDC
             {
                 _cTask = TryRefreshAsync();
             }
+        }
+
+        public async Task<UserInfoResult> GetUserInfoAsync(CancellationToken cancellationToken = default)
+        {
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken,
+                _disposeCancellationTokenSource.Token);
+            
+            var discoveryDocument = await _authHelper.GetDiscoveryDocumentAsync();
+            if (discoveryDocument.IsError)
+            {
+                Debug.LogError(discoveryDocument.Error);
+                throw new InvalidOperationException(discoveryDocument.Error);
+            }
+
+            var client = _authHelper.GetClientAsync(discoveryDocument);
+            var userInfo = await client.GetUserInfoAsync(
+                State.AccessToken,
+                cts.Token);
+
+            if (userInfo.IsError)
+                throw new InvalidOperationException(userInfo.Error);
+            
+            return userInfo;
         }
 
         private async Task LogOutInternalAsync(CancellationToken cancellationToken = default)
