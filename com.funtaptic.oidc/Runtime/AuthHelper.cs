@@ -133,6 +133,9 @@ namespace Funtaptic.OIDC
         {
             switch (Application.platform)
             {
+                case RuntimePlatform.OSXPlayer:
+                case RuntimePlatform.OSXEditor:
+                case RuntimePlatform.WindowsPlayer:
                 case RuntimePlatform.WindowsEditor:
                 {
                     var baseUri = $"http://localhost:{GetRandomUnusedPort()}/";
