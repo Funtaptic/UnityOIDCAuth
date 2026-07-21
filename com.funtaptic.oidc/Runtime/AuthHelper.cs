@@ -100,7 +100,7 @@ namespace Funtaptic.OIDC
             return _discoveryCache.GetAsync();
         }
 
-        public OidcClient GetClientAsync(DiscoveryDocumentResponse discoveryDocument)
+        public OidcClient GetClient(DiscoveryDocumentResponse discoveryDocument)
         {
             var options = new OidcClientOptions
             {

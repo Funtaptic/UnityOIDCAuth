@@ -19,11 +19,11 @@ namespace Funtaptic.OIDC
 
         private readonly CancellationTokenSource _disposeCancellationTokenSource = new CancellationTokenSource();
 
-        public SignedIn(AuthHelper coreBehaviour,AuthState state)
+        public SignedIn(AuthHelper coreBehaviour, AuthState state)
         {
             _authHelper = coreBehaviour;
             State = state;
-            _disposeCancellationTokenSource= new CancellationTokenSource();
+            _disposeCancellationTokenSource = new CancellationTokenSource();
         }
 
         public void Update()
@@ -41,7 +41,7 @@ namespace Funtaptic.OIDC
         {
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken,
                 _disposeCancellationTokenSource.Token);
-            
+
             var discoveryDocument = await _authHelper.GetDiscoveryDocumentAsync();
             if (discoveryDocument.IsError)
             {
@@ -49,48 +49,47 @@ namespace Funtaptic.OIDC
                 throw new InvalidOperationException(discoveryDocument.Error);
             }
 
-            var client = _authHelper.GetClientAsync(discoveryDocument);
+            var client = _authHelper.GetClient(discoveryDocument);
             var userInfo = await client.GetUserInfoAsync(
                 State.AccessToken,
                 cts.Token);
 
             if (userInfo.IsError)
                 throw new InvalidOperationException(userInfo.Error);
-            
+
             return userInfo;
         }
 
-        private async Task LogOutInternalAsync(CancellationToken cancellationToken = default)
+        private async Task DoLogOutAsync(OidcClient client)
         {
-            using (var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken,
-                       _disposeCancellationTokenSource.Token))
+            try
             {
-                var discoveryDocument = await _authHelper.GetDiscoveryDocumentAsync();
-                if (discoveryDocument.IsError)
-                {
-                    Debug.LogError(discoveryDocument.Error);
-                    return;
-                }
-
-                var client = _authHelper.GetClientAsync(discoveryDocument);
-
                 await client.LogoutAsync(new LogoutRequest
                 {
                     IdTokenHint = State.IdentityToken
-                }, cts.Token);
+                }, default);
             }
+            catch (Exception e)
+            {
+                Debug.LogException(e);
+            }
+        }
+
+        public async Task LogOut()
+        {
+            var discoveryDocument = await _authHelper.GetDiscoveryDocumentAsync();
+            if (discoveryDocument.IsError)
+            {
+                Debug.LogError(discoveryDocument.Error);
+                return;
+            }
+
+            var client = _authHelper.GetClient(discoveryDocument);
+
+            _ = DoLogOutAsync(client);
 
             _authHelper.DeleteCache();
             _authHelper.SetState(new SignedOut(_authHelper));
-        }
-
-        public async Task<bool> LogOutAsync(CancellationToken cancellationToken = default)
-        {
-            if (IsDoingWork)
-                return false;
-            _cTask = LogOutInternalAsync(cancellationToken);
-            await _cTask;
-            return true;
         }
 
         private async Task TryRefreshAsync()
@@ -98,8 +97,8 @@ namespace Funtaptic.OIDC
             try
             {
                 var refreshed = await RefreshTokenAsync();
-                
-                if (refreshed) 
+
+                if (refreshed)
                     return;
             }
             catch (Exception ex)
@@ -122,7 +121,7 @@ namespace Funtaptic.OIDC
                 return false;
             }
 
-            var client = _authHelper.GetClientAsync(discoveryDocument);
+            var client = _authHelper.GetClient(discoveryDocument);
 
             if (client == null)
             {
@@ -151,7 +150,7 @@ namespace Funtaptic.OIDC
             };
 
             _authHelper.SaveToCache(State);
-            
+
             return true;
         }
 

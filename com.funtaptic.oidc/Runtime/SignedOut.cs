@@ -50,7 +50,7 @@ namespace Funtaptic.OIDC
                     return false;
                 }
 
-                var client = _authHelper.GetClientAsync(discoveryDocument);
+                var client = _authHelper.GetClient(discoveryDocument);
 
                 if (client == null)
                     return false;
