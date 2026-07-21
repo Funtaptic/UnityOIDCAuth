@@ -76,7 +76,7 @@ public class AuthenticateBehaviour : MonoBehaviour
 
                 if (GUILayout.Button("Sign out", GUILayout.Height(250), GUILayout.Width(200)))
                 {
-                    _ = authenticatedStateBehaviour.LogOutAsync(destroyCancellationToken);
+                    _ = authenticatedStateBehaviour.LogOut();
                 }
 
                 break;
