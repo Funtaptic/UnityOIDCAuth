@@ -15,14 +15,11 @@ namespace Funtaptic.OIDC
 {
     public class AuthHelper : MonoBehaviour
     {
-        [SerializeField]
-        private string _authUrl;
+        [SerializeField] private string _authUrl;
 
-        [SerializeField]
-        public string _clientId;
+        [SerializeField] public string _clientId;
 
-        [SerializeField]
-        private string _cacheFileName = "token_cache.json";
+        [SerializeField] private string _cacheFileName = "token_cache.json";
 
         private DiscoveryPolicy _discoveryPolicy;
 
@@ -31,7 +28,13 @@ namespace Funtaptic.OIDC
         public IAuthState State { get; private set; }
 
         public event Action<IAuthState> StateChanged;
+
+        public string AuthUrl { get => _authUrl; set => _authUrl = value; }
         
+        public string ClientId { get => _clientId; set => _clientId = value; }
+        
+        public string CacheFileName { get => _cacheFileName; set => _cacheFileName = value; }
+
         public void DeleteCache()
         {
             File.Delete(CacheFilePath);
@@ -143,7 +146,7 @@ namespace Funtaptic.OIDC
                     var editorLogOutRedirectUri = $"{baseUri}logOut-callback";
                     clientOptions.RedirectUri = editorRedirectUri;
                     clientOptions.PostLogoutRedirectUri = editorLogOutRedirectUri;
-                    
+
                     clientOptions.Browser = new StandaloneBrowser();
                     break;
                 }
