@@ -1,7 +1,7 @@
 {
   "name": "com.funtaptic.oidc",
   "displayName": "Unity OIDC Authentication",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "unity": "6000.3",
   "author": "Funtaptic",
   "description": "Helper classes for oidc auth inside unity"
