@@ -1,5 +1,6 @@
 #if UNITY_IOS
 using System.IO;
+using Funtaptic.OIDC;
 using Funtaptic.OIDC.IOS;
 using UnityEditor;
 using UnityEditor.Callbacks;
@@ -22,18 +23,19 @@ public static class IOSPostProcessor
         var urlTypes = root.values.TryGetValue("CFBundleURLTypes", out var existingUrlTypes)
             ? existingUrlTypes.AsArray()
             : root.CreateArray("CFBundleURLTypes");
+        var scheme = OidcSettings.Instance.IOSScheme;
 
-        if (!ContainsScheme(urlTypes, IOSAuthenticationSessionBrowser.Scheme))
+        if (!ContainsScheme(urlTypes, scheme))
         {
             var urlType = urlTypes.AddDict();
-            urlType.SetString("CFBundleURLName", IOSAuthenticationSessionBrowser.Scheme);
+            urlType.SetString("CFBundleURLName", scheme);
 
             var schemes = urlType.CreateArray("CFBundleURLSchemes");
-            schemes.AddString(IOSAuthenticationSessionBrowser.Scheme);
+            schemes.AddString(scheme);
         }
 
         plist.WriteToFile(plistPath);
-        Debug.Log($"Successfully added {IOSAuthenticationSessionBrowser.Scheme} URL scheme to Info.plist.");
+        Debug.Log($"Successfully added {scheme} URL scheme to Info.plist.");
     }
 
     private static bool ContainsScheme(PlistElementArray urlTypes, string scheme)

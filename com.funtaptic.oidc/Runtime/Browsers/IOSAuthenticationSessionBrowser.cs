@@ -11,7 +11,15 @@ namespace Funtaptic.OIDC.IOS
 {
     public class IOSAuthenticationSessionBrowser : IBrowser
     {
-        public const string Scheme = "funtaptic.oidc";
+        private readonly string _scheme;
+
+        public IOSAuthenticationSessionBrowser(string scheme)
+        {
+            if (string.IsNullOrWhiteSpace(scheme))
+                throw new ArgumentException("iOS callback scheme must not be empty.", nameof(scheme));
+
+            _scheme = scheme;
+        }
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate void AuthenticationSessionCallback(string url, string error);
@@ -73,7 +81,7 @@ namespace Funtaptic.OIDC.IOS
                 }
 
                 Debug.Log($"Starting iOS OIDC authentication session. Start URL length: {startUrl.Length}");
-                StartNativeAuthenticationSession(startUrl, Scheme, NativeCallback);
+                StartNativeAuthenticationSession(startUrl, _scheme, NativeCallback);
                 return await completionSource.Task;
             }
             catch (Exception e)

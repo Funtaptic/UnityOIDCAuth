@@ -152,16 +152,18 @@ namespace Funtaptic.OIDC
                 }
                 case RuntimePlatform.Android:
                 {
-                    clientOptions.RedirectUri = $"{AndroidChromeTabsBrowser.Scheme}://login_callback";
-                    clientOptions.PostLogoutRedirectUri = $"{AndroidChromeTabsBrowser.Scheme}://logout_callback";
-                    clientOptions.Browser = new AndroidChromeTabsBrowser();
+                    var scheme = OidcSettings.Instance.AndroidScheme;
+                    clientOptions.RedirectUri = $"{scheme}://login_callback";
+                    clientOptions.PostLogoutRedirectUri = $"{scheme}://logout_callback";
+                    clientOptions.Browser = new AndroidChromeTabsBrowser(scheme);
                     break;
                 }
                 case RuntimePlatform.IPhonePlayer:
                 {
-                    clientOptions.RedirectUri = $"{IOSAuthenticationSessionBrowser.Scheme}://login_callback";
-                    clientOptions.PostLogoutRedirectUri = $"{IOSAuthenticationSessionBrowser.Scheme}://logout_callback";
-                    clientOptions.Browser = new IOSAuthenticationSessionBrowser();
+                    var scheme = OidcSettings.Instance.IOSScheme;
+                    clientOptions.RedirectUri = $"{scheme}://login_callback";
+                    clientOptions.PostLogoutRedirectUri = $"{scheme}://logout_callback";
+                    clientOptions.Browser = new IOSAuthenticationSessionBrowser(scheme);
                     break;
                 }
                 default:

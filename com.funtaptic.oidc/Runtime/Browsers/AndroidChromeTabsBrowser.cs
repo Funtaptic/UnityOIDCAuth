@@ -11,9 +11,17 @@ namespace Funtaptic.OIDC.Android
 {
     public class AndroidChromeTabsBrowser : IBrowser
     {
-        public const string Scheme = "funtaptic.oidc";
-
         public const string ActivityClassName = "com.funtaptic.AuthRedirectActivity";
+
+        private readonly string _scheme;
+
+        public AndroidChromeTabsBrowser(string scheme)
+        {
+            if (string.IsNullOrWhiteSpace(scheme))
+                throw new ArgumentException("Android callback scheme must not be empty.", nameof(scheme));
+
+            _scheme = scheme;
+        }
 
         private class DisposableAction : IDisposable
         {
@@ -113,6 +121,12 @@ namespace Funtaptic.OIDC.Android
                     try
                     {
                         var uri = new Uri(url);
+                        if (!string.Equals(uri.Scheme, _scheme, StringComparison.OrdinalIgnoreCase))
+                        {
+                            throw new InvalidOperationException(
+                                $"Unexpected Android callback URI scheme '{uri.Scheme}'.");
+                        }
+
                         var queryParams = HttpUtility.UrlDecode(uri.Query);
 
                         completionSource.SetResult(new BrowserResult()

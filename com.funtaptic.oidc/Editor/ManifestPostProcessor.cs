@@ -1,5 +1,6 @@
 using System.IO;
 using System.Xml;
+using Funtaptic.OIDC;
 using Funtaptic.OIDC.Android;
 using UnityEditor.Android;
 using UnityEngine;
@@ -42,7 +43,8 @@ public class AndroidManifestPostProcessor : IPostGenerateGradleAndroidProject
 
         // Data
         XmlElement data = doc.CreateElement("data");
-        data.SetAttribute("scheme", "http://schemas.android.com/apk/res/android", AndroidChromeTabsBrowser.Scheme);
+        data.SetAttribute("scheme", "http://schemas.android.com/apk/res/android",
+            OidcSettings.Instance.AndroidScheme);
         intentFilter.AppendChild(data);
 
         activityElement.AppendChild(intentFilter);
