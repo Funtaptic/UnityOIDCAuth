@@ -9,10 +9,9 @@ namespace Funtaptic.OIDC
     public class SignedOut : IAuthState
     {
         public bool IsDoingWork => _cTask is { IsCompleted: false };
-        
+
         public void Update()
         {
-            
         }
 
         private AuthHelper _authHelper;
@@ -43,14 +42,7 @@ namespace Funtaptic.OIDC
                 using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken,
                     _disposeCancellationTokenSource.Token);
 
-                var discoveryDocument = await _authHelper.GetDiscoveryDocumentAsync();
-                if (discoveryDocument.IsError)
-                {
-                    Debug.LogError(discoveryDocument.Error);
-                    return false;
-                }
-
-                var client = _authHelper.GetClient(discoveryDocument);
+                var client = await _authHelper.GetClientAsync();
 
                 if (client == null)
                     return false;
@@ -83,7 +75,6 @@ namespace Funtaptic.OIDC
             }
             catch (OperationCanceledException)
             {
-                
             }
             catch (Exception exception)
             {
