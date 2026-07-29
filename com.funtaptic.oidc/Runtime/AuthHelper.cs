@@ -21,6 +21,8 @@ namespace Funtaptic.OIDC
 
         [SerializeField] private string _cacheFileName = "token_cache.json";
 
+        [SerializeField] private string _scopes = "openid profile roles offline_access";
+        
         private DiscoveryPolicy _discoveryPolicy;
 
         private string CacheFilePath => $"{Application.persistentDataPath}/{_cacheFileName}.json";
@@ -28,12 +30,30 @@ namespace Funtaptic.OIDC
         public IAuthState State { get; private set; }
 
         public event Action<IAuthState> StateChanged;
+        
+        public string AuthUrl
+        {
+            get => _authUrl;
+            set => _authUrl = value;
+        }
 
-        public string AuthUrl { get => _authUrl; set => _authUrl = value; }
+        public string ClientId
+        {
+            get => _clientId;
+            set => _clientId = value;
+        }
+
+        public string CacheFileName
+        {
+            get => _cacheFileName;
+            set => _cacheFileName = value;
+        }
         
-        public string ClientId { get => _clientId; set => _clientId = value; }
-        
-        public string CacheFileName { get => _cacheFileName; set => _cacheFileName = value; }
+        public string Scopes
+        {
+            get => _scopes;
+            set => _scopes = value;
+        }
 
         public void DeleteCache()
         {
@@ -59,6 +79,8 @@ namespace Funtaptic.OIDC
         }
 
         private DiscoveryCache _discoveryCache;
+        
+        private OidcClient _client;
 
         private void Awake()
         {
@@ -98,18 +120,24 @@ namespace Funtaptic.OIDC
             return port;
         }
 
-        public Task<DiscoveryDocumentResponse> GetDiscoveryDocumentAsync()
+        public async Task<OidcClient> GetClientAsync()
         {
-            return _discoveryCache.GetAsync();
-        }
+            if(_client != null)
+                return _client;
+            
+            var discoveryDocument = await _discoveryCache.GetAsync();
 
-        public OidcClient GetClient(DiscoveryDocumentResponse discoveryDocument)
-        {
+            if (discoveryDocument.IsError)
+            {
+                Debug.LogError(discoveryDocument.Error);
+                return null;
+            }
+
             var options = new OidcClientOptions
             {
                 Authority = _authUrl,
                 ClientId = _clientId,
-                Scope = "openid profile roles",
+                Scope = _scopes,
                 ProviderInformation = new ProviderInformation
                 {
                     IssuerName = discoveryDocument.Issuer,
@@ -129,7 +157,8 @@ namespace Funtaptic.OIDC
             SetupPlatform(options);
 
             options.LoggerFactory.AddProvider(UnityAuthLoggerProvider.Instance);
-            return new OidcClient(options);
+            _client = new OidcClient(options);
+            return _client;
         }
 
         private static void SetupPlatform(OidcClientOptions clientOptions)

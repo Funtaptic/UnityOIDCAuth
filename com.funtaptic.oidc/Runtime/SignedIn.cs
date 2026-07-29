@@ -42,14 +42,11 @@ namespace Funtaptic.OIDC
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken,
                 _disposeCancellationTokenSource.Token);
 
-            var discoveryDocument = await _authHelper.GetDiscoveryDocumentAsync();
-            if (discoveryDocument.IsError)
-            {
-                Debug.LogError(discoveryDocument.Error);
-                throw new InvalidOperationException(discoveryDocument.Error);
-            }
+            var client = await _authHelper.GetClientAsync();
 
-            var client = _authHelper.GetClient(discoveryDocument);
+            if (client == null)
+                throw new InvalidOperationException("Client is null");
+
             var userInfo = await client.GetUserInfoAsync(
                 State.AccessToken,
                 cts.Token);
@@ -77,16 +74,9 @@ namespace Funtaptic.OIDC
 
         public async Task LogOut()
         {
-            var discoveryDocument = await _authHelper.GetDiscoveryDocumentAsync();
-            if (discoveryDocument.IsError)
-            {
-                Debug.LogError(discoveryDocument.Error);
-                return;
-            }
-
-            var client = _authHelper.GetClient(discoveryDocument);
-
-            _ = DoLogOutAsync(client);
+            var client = await _authHelper.GetClientAsync();
+            if (client != null)
+                _ = DoLogOutAsync(client);
 
             _authHelper.DeleteCache();
             _authHelper.SetState(new SignedOut(_authHelper));
@@ -113,15 +103,7 @@ namespace Funtaptic.OIDC
         private async Awaitable<bool> RefreshTokenAsync()
         {
             Debug.Log("Refreshing token...");
-
-            var discoveryDocument = await _authHelper.GetDiscoveryDocumentAsync();
-            if (discoveryDocument.IsError)
-            {
-                Debug.LogError(discoveryDocument.Error);
-                return false;
-            }
-
-            var client = _authHelper.GetClient(discoveryDocument);
+            var client = await _authHelper.GetClientAsync();
 
             if (client == null)
             {
