@@ -37,7 +37,10 @@ browser integrations around this client.
 3. In Unity, open the NuGet package manager and install
    `Duende.IdentityModel.OidcClient`.
 
-4. Add the Unity OIDC Authentication package to the project.
+4. Add the Unity OIDC Authentication package using one of the following methods.
 
-Installing the dependencies first prevents missing assembly references during
-package import and ensures the required Android libraries can be resolved.
+   In the Package Manager, select **+ > Install package from git URL** and enter:
+
+   ```text
+   https://github.com/Funtaptic/UnityOIDCAuth.git?path=/com.funtaptic.oidc
+   ```
