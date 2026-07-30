@@ -1,3 +1,27 @@
+## What `com.funtaptic.oidc` does
+
+`com.funtaptic.oidc` connects a Unity application to an existing OpenID Connect
+(OIDC) identity provider. It handles the client-side authentication flow; it does
+not provide or host the identity service itself.
+
+The package provides:
+
+- An `AuthHelper` component for configuring the identity-provider URL, client ID,
+  requested scopes, and token-cache filename.
+- Sign-in and sign-out flows using the system browser appropriate for each
+  platform: a loopback browser callback on Windows and macOS, Chrome Custom Tabs
+  on Android, and `ASWebAuthenticationSession` on iOS.
+- `SignedIn` and `SignedOut` states, exposed through `AuthHelper.State` and the
+  `StateChanged` event, so game code can react to authentication changes.
+- Local persistence of access, identity, and refresh tokens in
+  `Application.persistentDataPath`, allowing a session to be restored when the
+  application starts.
+- Automatic access-token refresh. If refreshing fails, the cached session is
+  removed and the user returns to the signed-out state.
+- User-info requests and identity-provider logout for authenticated users.
+- Android and iOS build processing that registers the custom callback URL scheme
+  required to return from the browser to the application.
+
 ## Dependencies
 
 Install the following dependencies before adding the OIDC package to your project.
