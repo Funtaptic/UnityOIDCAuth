@@ -24,22 +24,28 @@ browser integrations around this client.
 
 ## Installation
 
-1. Add the following entries to the `dependencies` object in your Unity project's
-   `Packages/manifest.json`:
+1. Open **Window > Package Management > Package Manager** in Unity.
 
-   ```json
-   "com.github-glitchenzo.nugetforunity": "https://github.com/GlitchEnzo/NuGetForUnity.git?path=/src/NuGetForUnity",
-   "com.google.external-dependency-manager": "https://github.com/googlesamples/unity-jar-resolver.git?path=upm"
+2. Select **+ > Install package from git URL**, enter the NuGetForUnity URL, and
+   select **Install**:
+
+   ```text
+   https://github.com/GlitchEnzo/NuGetForUnity.git?path=/src/NuGetForUnity
    ```
 
-2. Let Unity import both packages.
+3. Repeat the same Package Manager flow for External Dependency Manager:
 
-3. In Unity, open the NuGet package manager and install
+   ```text
+   https://github.com/googlesamples/unity-jar-resolver.git?path=upm
+   ```
+
+4. Let Unity finish importing both packages.
+
+5. In Unity, open the NuGet package manager and install
    `Duende.IdentityModel.OidcClient`.
 
-4. Add the Unity OIDC Authentication package using one of the following methods.
-
-   In the Package Manager, select **+ > Install package from git URL** and enter:
+6. Return to the Unity Package Manager, select
+   **+ > Install package from git URL**, and enter:
 
    ```text
    https://github.com/Funtaptic/UnityOIDCAuth.git?path=/com.funtaptic.oidc
