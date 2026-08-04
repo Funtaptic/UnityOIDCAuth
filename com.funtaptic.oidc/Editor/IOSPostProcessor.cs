@@ -15,6 +15,15 @@ public static class IOSPostProcessor
         if (target != BuildTarget.iOS)
             return;
 
+        var projectPath = PBXProject.GetPBXProjectPath(pathToBuiltProject);
+        var project = new PBXProject();
+        project.ReadFromFile(projectPath);
+        project.AddFrameworkToProject(
+            project.GetUnityFrameworkTargetGuid(),
+            "AuthenticationServices.framework",
+            weak: false);
+        project.WriteToFile(projectPath);
+
         var plistPath = Path.Combine(pathToBuiltProject, "Info.plist");
         var plist = new PlistDocument();
         plist.ReadFromFile(plistPath);
