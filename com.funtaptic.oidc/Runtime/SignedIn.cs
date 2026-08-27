@@ -57,8 +57,10 @@ namespace Funtaptic.OIDC
             return userInfo;
         }
 
-        private async Task DoLogOutAsync(OidcClient client)
+        private async Task DoLogOutAsync()
         {
+            var client = await _authHelper.GetClientAsync();
+
             try
             {
                 await client.LogoutAsync(new LogoutRequest
@@ -72,14 +74,13 @@ namespace Funtaptic.OIDC
             }
         }
 
-        public async Task LogOut()
+        public void LogOut(bool callLogOut = true)
         {
-            var client = await _authHelper.GetClientAsync();
-            if (client != null)
-                _ = DoLogOutAsync(client);
-
             _authHelper.DeleteCache();
             _authHelper.SetState(new SignedOut(_authHelper));
+
+            if (callLogOut)
+                _ = DoLogOutAsync();
         }
 
         private async Task TryRefreshAsync()
