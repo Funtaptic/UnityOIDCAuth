@@ -13,6 +13,8 @@ namespace Funtaptic.OIDC.Android
     {
         public const string ActivityClassName = "com.funtaptic.AuthRedirectActivity";
 
+        private const int UserCancelGracePeriodMilliseconds = 1000;
+
         private readonly string _scheme;
 
         public AndroidChromeTabsBrowser(string scheme)
@@ -102,14 +104,17 @@ namespace Funtaptic.OIDC.Android
             try
             {
                 var completionSource = new TaskCompletionSource<BrowserResult>();
+                var callbackReceived = 0;
+                var browserWasBackgrounded = 0;
+                var cancelCheckScheduled = 0;
 
                 using var autoExpire = new CancellationTokenSource(options.Timeout);
 
-                using var canceled = cancellationToken.Register(() => { completionSource.SetCanceled(); });
+                using var canceled = cancellationToken.Register(() => { completionSource.TrySetCanceled(); });
 
                 using var registration = autoExpire.Token.Register(() =>
                 {
-                    completionSource.SetResult(new BrowserResult()
+                    completionSource.TrySetResult(new BrowserResult()
                     {
                         ResultType = BrowserResultType.Timeout,
                         Error = "Timed out"
@@ -120,6 +125,8 @@ namespace Funtaptic.OIDC.Android
                 {
                     try
                     {
+                        Interlocked.Exchange(ref callbackReceived, 1);
+
                         var uri = new Uri(url);
                         if (!string.Equals(uri.Scheme, _scheme, StringComparison.OrdinalIgnoreCase))
                         {
@@ -129,7 +136,7 @@ namespace Funtaptic.OIDC.Android
 
                         var queryParams = HttpUtility.UrlDecode(uri.Query);
 
-                        completionSource.SetResult(new BrowserResult()
+                        completionSource.TrySetResult(new BrowserResult()
                         {
                             ResultType = BrowserResultType.Success,
                             Response = queryParams
@@ -137,20 +144,27 @@ namespace Funtaptic.OIDC.Android
                     }
                     catch (Exception e)
                     {
-                        completionSource.SetException(e);
+                        completionSource.TrySetException(e);
                     }
                 });
 
                 using var focusSub = SubscribeAppFocused(isFocused =>
                 {
                     if (isFocused == false)
+                    {
+                        Interlocked.Exchange(ref browserWasBackgrounded, 1);
+                        return;
+                    }
+
+                    if (Volatile.Read(ref browserWasBackgrounded) == 0 ||
+                        Volatile.Read(ref callbackReceived) != 0 ||
+                        Interlocked.Exchange(ref cancelCheckScheduled, 1) != 0)
                         return;
 
-                    completionSource.TrySetResult(new BrowserResult()
-                    {
-                        ResultType = BrowserResultType.UserCancel,
-                        Error = "User cancelled"
-                    });
+                    _ = CompleteCancellationAfterGracePeriodAsync(
+                        completionSource,
+                        () => Volatile.Read(ref callbackReceived) != 0,
+                        cancellationToken);
                 });
 
                 AndroidChromeCustomTab.LaunchUrl(options.StartUrl);
@@ -164,6 +178,29 @@ namespace Funtaptic.OIDC.Android
                     ResultType = BrowserResultType.UnknownError,
                     Error = e.Message
                 };
+            }
+        }
+
+        private static async Task CompleteCancellationAfterGracePeriodAsync(
+            TaskCompletionSource<BrowserResult> completionSource,
+            Func<bool> callbackWasReceived,
+            CancellationToken cancellationToken)
+        {
+            try
+            {
+                await Task.Delay(UserCancelGracePeriodMilliseconds, cancellationToken);
+
+                if (callbackWasReceived())
+                    return;
+
+                completionSource.TrySetResult(new BrowserResult()
+                {
+                    ResultType = BrowserResultType.UserCancel,
+                    Error = "User cancelled"
+                });
+            }
+            catch (OperationCanceledException)
+            {
             }
         }
     }

@@ -1,0 +1,64 @@
+mergeInto(LibraryManager.library, {
+    FuntapticOIDCPreparePopup: function () {
+        window.funtapticOidcCallbackUrl = null;
+
+        if (!window.funtapticOidcMessageHandler) {
+            window.funtapticOidcMessageHandler = function (event) {
+                if (event.origin !== window.location.origin || !event.data || event.data.type !== 'funtaptic-oidc-callback') {
+                    return;
+                }
+
+                window.funtapticOidcCallbackUrl = event.data.url;
+            };
+            window.addEventListener('message', window.funtapticOidcMessageHandler);
+        }
+
+        window.funtapticOidcPopup = window.open('about:blank', 'FuntapticOIDC', 'popup=yes,width=520,height=760,scrollbars=yes,resizable=yes');
+        if (!window.funtapticOidcPopup) {
+            return 0;
+        }
+
+        window.funtapticOidcPopup.document.title = 'Signing in...';
+        window.funtapticOidcPopup.document.body.innerHTML = '<p style="font: 20px sans-serif; padding: 24px">Preparing sign in...</p>';
+        return 1;
+    },
+
+    FuntapticOIDCClosePreparedPopup: function () {
+        if (window.funtapticOidcPopup && !window.funtapticOidcPopup.closed) {
+            window.funtapticOidcPopup.close();
+        }
+        window.funtapticOidcPopup = null;
+    },
+
+    FuntapticOIDCNavigatePopup: function (urlPointer) {
+        if (!window.funtapticOidcPopup || window.funtapticOidcPopup.closed) {
+            return;
+        }
+        window.funtapticOidcPopup.location.href = UTF8ToString(urlPointer);
+        window.funtapticOidcPopup.focus();
+    },
+
+    FuntapticOIDCGetCallbackUrl: function () {
+        if (!window.funtapticOidcCallbackUrl) {
+            return 0;
+        }
+
+        var callbackUrl = window.funtapticOidcCallbackUrl;
+        window.funtapticOidcCallbackUrl = null;
+        return stringToNewUTF8(callbackUrl);
+    },
+
+    FuntapticOIDCGetCurrentPageUrl: function () {
+        return stringToNewUTF8(window.location.origin + window.location.pathname);
+    },
+
+    FuntapticOIDCForwardCallbackToOpener: function () {
+        var parameters = new URLSearchParams(window.location.search);
+        if (!parameters.has('oidc_callback') || !window.opener) {
+            return;
+        }
+
+        window.opener.postMessage({ type: 'funtaptic-oidc-callback', url: window.location.href }, window.location.origin);
+        window.close();
+    }
+});

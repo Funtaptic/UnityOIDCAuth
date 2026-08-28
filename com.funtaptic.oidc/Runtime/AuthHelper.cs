@@ -9,6 +9,7 @@ using Duende.IdentityModel.OidcClient;
 using Funtaptic.OIDC.Android;
 using Funtaptic.OIDC.IOS;
 using Funtaptic.OIDC.Standalone.Funtaptic.OIDC.Auth;
+using Funtaptic.OIDC.WebGL;
 using UnityEngine;
 
 namespace Funtaptic.OIDC
@@ -125,20 +126,18 @@ namespace Funtaptic.OIDC
             if(_client != null)
                 return _client;
             
-            var discoveryDocument = await _discoveryCache.GetAsync();
-
-            if (discoveryDocument.IsError)
+            ProviderInformation providerInformation;
+            if (Application.platform == RuntimePlatform.WebGLPlayer)
             {
-                Debug.LogError(discoveryDocument.Error);
-                return null;
+                providerInformation = await new WebGLProviderInformationLoader(_authUrl).LoadAsync();
             }
-
-            var options = new OidcClientOptions
+            else
             {
-                Authority = _authUrl,
-                ClientId = _clientId,
-                Scope = _scopes,
-                ProviderInformation = new ProviderInformation
+                var discoveryDocument = await _discoveryCache.GetAsync();
+                if (discoveryDocument.IsError)
+                    throw new InvalidOperationException(discoveryDocument.Error);
+
+                providerInformation = new ProviderInformation
                 {
                     IssuerName = discoveryDocument.Issuer,
                     AuthorizeEndpoint = discoveryDocument.AuthorizeEndpoint,
@@ -146,7 +145,15 @@ namespace Funtaptic.OIDC
                     EndSessionEndpoint = discoveryDocument.EndSessionEndpoint,
                     UserInfoEndpoint = discoveryDocument.UserInfoEndpoint,
                     KeySet = discoveryDocument.KeySet
-                },
+                };
+            }
+
+            var options = new OidcClientOptions
+            {
+                Authority = _authUrl,
+                ClientId = _clientId,
+                Scope = _scopes,
+                ProviderInformation = providerInformation,
                 LoadProfile = false,
                 Policy = new Policy
                 {
@@ -193,6 +200,14 @@ namespace Funtaptic.OIDC
                     clientOptions.RedirectUri = $"{scheme}://login_callback";
                     clientOptions.PostLogoutRedirectUri = $"{scheme}://logout_callback";
                     clientOptions.Browser = new IOSAuthenticationSessionBrowser(scheme);
+                    break;
+                }
+                case RuntimePlatform.WebGLPlayer:
+                {
+                    var baseUrl = WebGLBrowser.GetCurrentPageUrl();
+                    clientOptions.RedirectUri = $"{baseUrl}?oidc_callback=login";
+                    clientOptions.PostLogoutRedirectUri = $"{baseUrl}?oidc_callback=logout";
+                    clientOptions.Browser = new WebGLBrowser();
                     break;
                 }
                 default:
