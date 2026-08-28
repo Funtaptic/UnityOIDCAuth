@@ -61,6 +61,9 @@ namespace Funtaptic.OIDC
         {
             var client = await _authHelper.GetClientAsync();
 
+            if (client == null)
+                return;
+
             try
             {
                 await client.LogoutAsync(new LogoutRequest
@@ -74,13 +77,13 @@ namespace Funtaptic.OIDC
             }
         }
 
-        public void LogOut(bool callLogOut = true)
+        public async Task LogOut(bool callLogOut = true)
         {
             _authHelper.DeleteCache();
             _authHelper.SetState(new SignedOut(_authHelper));
 
             if (callLogOut)
-                _ = DoLogOutAsync();
+                await DoLogOutAsync();
         }
 
         private async Task TryRefreshAsync()
@@ -118,7 +121,18 @@ namespace Funtaptic.OIDC
 
             if (result.IsError)
             {
-                Debug.LogError($"Failed to refresh token: {result.Error}");
+                if (string.Equals(result.Error, "invalid_grant", StringComparison.OrdinalIgnoreCase))
+                {
+                    // A revoked or expired refresh token is a normal sign-out
+                    // condition when restoring a cached session. TryRefreshAsync
+                    // clears the cache and transitions to SignedOut below.
+                    Debug.Log("Saved authentication session has expired. Sign in again to continue.");
+                }
+                else
+                {
+                    Debug.LogError($"Failed to refresh token: {result.Error}");
+                }
+
                 return false;
             }
 
@@ -127,7 +141,11 @@ namespace Funtaptic.OIDC
             State = new AuthState()
             {
                 AccessToken = result.AccessToken,
-                RefreshToken = result.RefreshToken,
+                // Some providers omit a replacement refresh token when token
+                // rotation is disabled. Keep the existing one in that case.
+                RefreshToken = string.IsNullOrWhiteSpace(result.RefreshToken)
+                    ? State.RefreshToken
+                    : result.RefreshToken,
                 IdentityToken = result.IdentityToken,
                 AccessTokenExpiration = result.AccessTokenExpiration
             };
