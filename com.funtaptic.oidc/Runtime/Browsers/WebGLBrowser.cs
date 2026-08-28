@@ -11,7 +11,7 @@ namespace Funtaptic.OIDC.WebGL
     {
 #if UNITY_WEBGL && !UNITY_EDITOR
         [DllImport("__Internal")]
-        private static extern bool FuntapticOIDCPreparePopup();
+        private static extern int FuntapticOIDCPreparePopup();
 
         [DllImport("__Internal")]
         private static extern void FuntapticOIDCClosePreparedPopup();
@@ -20,10 +20,7 @@ namespace Funtaptic.OIDC.WebGL
         private static extern void FuntapticOIDCNavigatePopup(string url);
 
         [DllImport("__Internal")]
-        private static extern string FuntapticOIDCGetCallbackUrl();
-
-        [DllImport("__Internal")]
-        private static extern string FuntapticOIDCGetCurrentPageUrl();
+        private static extern IntPtr FuntapticOIDCGetCallbackUrl();
 
         [DllImport("__Internal")]
         private static extern void FuntapticOIDCForwardCallbackToOpener();
@@ -40,7 +37,7 @@ namespace Funtaptic.OIDC.WebGL
         public static bool PreparePopup()
         {
 #if UNITY_WEBGL && !UNITY_EDITOR
-            return FuntapticOIDCPreparePopup();
+            return FuntapticOIDCPreparePopup() != 0;
 #else
             return false;
 #endif
@@ -56,7 +53,17 @@ namespace Funtaptic.OIDC.WebGL
         public static string GetCurrentPageUrl()
         {
 #if UNITY_WEBGL && !UNITY_EDITOR
-            return FuntapticOIDCGetCurrentPageUrl();
+            var pageUrl = Application.absoluteURL;
+            var queryIndex = pageUrl.IndexOf('?');
+            if (queryIndex >= 0)
+                pageUrl = pageUrl.Substring(0, queryIndex);
+
+            var fragmentIndex = pageUrl.IndexOf('#');
+            if (fragmentIndex >= 0)
+                pageUrl = pageUrl.Substring(0, fragmentIndex);
+
+            var lastSlashIndex = pageUrl.LastIndexOf('/');
+            return lastSlashIndex >= 0 ? pageUrl.Substring(0, lastSlashIndex + 1) : $"{pageUrl}/";
 #else
             return string.Empty;
 #endif
@@ -69,9 +76,10 @@ namespace Funtaptic.OIDC.WebGL
 
             while (!cancellationToken.IsCancellationRequested)
             {
-                var callbackUrl = FuntapticOIDCGetCallbackUrl();
-                if (!string.IsNullOrEmpty(callbackUrl))
+                var callbackPointer = FuntapticOIDCGetCallbackUrl();
+                if (callbackPointer != IntPtr.Zero)
                 {
+                    var callbackUrl = Marshal.PtrToStringAnsi(callbackPointer);
                     return new BrowserResult
                     {
                         ResultType = BrowserResultType.Success,

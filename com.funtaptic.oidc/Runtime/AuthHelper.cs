@@ -205,8 +205,8 @@ namespace Funtaptic.OIDC
                 case RuntimePlatform.WebGLPlayer:
                 {
                     var baseUrl = WebGLBrowser.GetCurrentPageUrl();
-                    clientOptions.RedirectUri = $"{baseUrl}?oidc_callback=login";
-                    clientOptions.PostLogoutRedirectUri = $"{baseUrl}?oidc_callback=logout";
+                    clientOptions.RedirectUri = $"{baseUrl}oidc-callback.html?oidc_callback=login";
+                    clientOptions.PostLogoutRedirectUri = $"{baseUrl}oidc-callback.html?oidc_callback=logout";
                     clientOptions.Browser = new WebGLBrowser();
                     break;
                 }

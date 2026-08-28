@@ -48,10 +48,6 @@ mergeInto(LibraryManager.library, {
         return stringToNewUTF8(callbackUrl);
     },
 
-    FuntapticOIDCGetCurrentPageUrl: function () {
-        return stringToNewUTF8(window.location.origin + window.location.pathname);
-    },
-
     FuntapticOIDCForwardCallbackToOpener: function () {
         var parameters = new URLSearchParams(window.location.search);
         if (!parameters.has('oidc_callback') || !window.opener) {
