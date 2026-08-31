@@ -3,6 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Duende.IdentityModel.OidcClient;
 using Duende.IdentityModel.OidcClient.Results;
+using Funtaptic.OIDC.WebGL;
 using UnityEngine;
 
 namespace Funtaptic.OIDC
@@ -115,6 +116,24 @@ namespace Funtaptic.OIDC
                 return false;
             }
 
+            if (Application.platform == RuntimePlatform.WebGLPlayer)
+            {
+                var tokenClient = new WebGLTokenClient(
+                    client.Options.ProviderInformation.TokenEndpoint,
+                    client.Options.ClientId);
+                var webGLResult = await tokenClient.RefreshAsync(
+                    State.RefreshToken,
+                    _disposeCancellationTokenSource.Token);
+
+                ApplyRefreshedState(
+                    webGLResult.AccessToken,
+                    webGLResult.RefreshToken,
+                    webGLResult.IdentityToken,
+                    webGLResult.AccessTokenExpiration);
+                Debug.Log("Token refreshed successfully through UnityWebRequest.");
+                return true;
+            }
+
             var result =
                 await client.RefreshTokenAsync(State.RefreshToken, null, null,
                     _disposeCancellationTokenSource.Token);
@@ -138,21 +157,34 @@ namespace Funtaptic.OIDC
 
             Debug.Log("Token refreshed successfully.");
 
+            ApplyRefreshedState(
+                result.AccessToken,
+                result.RefreshToken,
+                result.IdentityToken,
+                result.AccessTokenExpiration);
+
+            return true;
+        }
+
+        private void ApplyRefreshedState(
+            string accessToken,
+            string refreshToken,
+            string identityToken,
+            DateTimeOffset accessTokenExpiration)
+        {
             State = new AuthState()
             {
-                AccessToken = result.AccessToken,
-                // Some providers omit a replacement refresh token when token
-                // rotation is disabled. Keep the existing one in that case.
-                RefreshToken = string.IsNullOrWhiteSpace(result.RefreshToken)
+                AccessToken = accessToken,
+                RefreshToken = string.IsNullOrWhiteSpace(refreshToken)
                     ? State.RefreshToken
-                    : result.RefreshToken,
-                IdentityToken = result.IdentityToken,
-                AccessTokenExpiration = result.AccessTokenExpiration
+                    : refreshToken,
+                IdentityToken = string.IsNullOrWhiteSpace(identityToken)
+                    ? State.IdentityToken
+                    : identityToken,
+                AccessTokenExpiration = accessTokenExpiration
             };
 
             _authHelper.SaveToCache(State);
-
-            return true;
         }
 
         public void Dispose()

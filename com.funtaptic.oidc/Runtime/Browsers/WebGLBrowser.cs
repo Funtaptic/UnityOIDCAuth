@@ -82,9 +82,16 @@ namespace Funtaptic.OIDC.WebGL
             Debug.Log($"[OIDC WebGL] Navigating authentication popup to {DescribeUrl(options.StartUrl)}.");
             FuntapticOIDCNavigatePopup(options.StartUrl);
             var closedPopupFrames = 0;
+            var timeoutAt = Time.realtimeSinceStartupAsDouble + options.Timeout.TotalSeconds;
 
             while (!cancellationToken.IsCancellationRequested)
             {
+                if (Time.realtimeSinceStartupAsDouble >= timeoutAt)
+                {
+                    Debug.LogWarning("[OIDC WebGL] Authentication browser wait timed out.");
+                    return new BrowserResult { ResultType = BrowserResultType.Timeout };
+                }
+
                 var callbackPointer = FuntapticOIDCGetCallbackUrl();
                 if (callbackPointer != IntPtr.Zero)
                 {

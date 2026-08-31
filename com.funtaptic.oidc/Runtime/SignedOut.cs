@@ -2,6 +2,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using Duende.IdentityModel.OidcClient;
+using Funtaptic.OIDC.WebGL;
 using UnityEngine;
 
 namespace Funtaptic.OIDC
@@ -59,6 +60,19 @@ namespace Funtaptic.OIDC
 
                 Debug.Log("[OIDC] OIDC client created. Opening the authentication browser.");
 
+                if (Application.platform == RuntimePlatform.WebGLPlayer)
+                {
+                    Debug.Log("[OIDC WebGL] Using the direct UnityWebRequest authorization-code flow.");
+                    var webGLResult = await new WebGLLoginFlow().AuthenticateAsync(client, cts.Token);
+                    return CompleteAuthentication(new AuthState
+                    {
+                        AccessTokenExpiration = webGLResult.AccessTokenExpiration,
+                        AccessToken = webGLResult.AccessToken,
+                        IdentityToken = webGLResult.IdentityToken,
+                        RefreshToken = webGLResult.RefreshToken
+                    });
+                }
+
                 var loginTask = client.LoginAsync(new LoginRequest()
                 {
                     BrowserTimeout = 300,
@@ -74,21 +88,13 @@ namespace Funtaptic.OIDC
                     return false;
                 }
 
-                var state = new AuthState()
+                return CompleteAuthentication(new AuthState
                 {
                     AccessTokenExpiration = result.AccessTokenExpiration,
                     AccessToken = result.AccessToken,
                     IdentityToken = result.IdentityToken,
                     RefreshToken = result.RefreshToken
-                };
-
-                _authHelper.SaveToCache(state);
-
-                _authHelper.SetState(new SignedIn(_authHelper,
-                    state));
-
-                Debug.Log("[OIDC] Tokens were received and the signed-in state was applied.");
-                return true;
+                });
             }
             catch (OperationCanceledException exception)
             {
@@ -100,6 +106,14 @@ namespace Funtaptic.OIDC
             }
 
             return false;
+        }
+
+        private bool CompleteAuthentication(AuthState state)
+        {
+            _authHelper.SaveToCache(state);
+            _authHelper.SetState(new SignedIn(_authHelper, state));
+            Debug.Log("[OIDC] Tokens were received and the signed-in state was applied.");
+            return true;
         }
 
         public void Dispose()

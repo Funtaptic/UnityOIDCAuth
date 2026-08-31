@@ -1,8 +1,6 @@
 using System;
-using System.IO;
 using System.Net;
 using System.Net.Http;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
@@ -59,8 +57,6 @@ namespace Funtaptic.OIDC.WebGL
 
             var responseBytes = unityRequest.downloadHandler?.data ?? Array.Empty<byte>();
             Debug.Log($"[OIDC WebGL] HTTP response body materialized: {responseBytes.Length} bytes; {DescribeUri(request.RequestUri)}.");
-            var responseText = Encoding.UTF8.GetString(responseBytes);
-            Debug.Log($"[OIDC WebGL] HTTP response text materialized: {responseText.Length} chars; {DescribeUri(request.RequestUri)}.");
 
             var response = new HttpResponseMessage((HttpStatusCode)unityRequest.responseCode)
             {
@@ -68,7 +64,7 @@ namespace Funtaptic.OIDC.WebGL
                 ReasonPhrase = unityRequest.error
             };
 
-            response.Content = new MaterializedHttpContent(responseBytes, request.RequestUri);
+            response.Content = new ByteArrayContent(responseBytes);
 
             var responseHeaders = unityRequest.GetResponseHeaders();
             if (responseHeaders != null)
@@ -138,32 +134,6 @@ namespace Funtaptic.OIDC.WebGL
                 return "<null>";
 
             return $"{uri.Scheme}://{uri.Host}{uri.AbsolutePath}";
-        }
-
-        private sealed class MaterializedHttpContent : HttpContent
-        {
-            private readonly byte[] _content;
-            private readonly Uri _uri;
-
-            public MaterializedHttpContent(byte[] content, Uri uri)
-            {
-                _content = content;
-                _uri = uri;
-            }
-
-            protected override Task SerializeToStreamAsync(Stream stream, TransportContext context)
-            {
-                Debug.Log($"[OIDC WebGL] HTTP response content serialization started: {DescribeUri(_uri)}.");
-                stream.Write(_content, 0, _content.Length);
-                Debug.Log($"[OIDC WebGL] HTTP response content serialization completed: {_content.Length} bytes; {DescribeUri(_uri)}.");
-                return Task.CompletedTask;
-            }
-
-            protected override bool TryComputeLength(out long length)
-            {
-                length = _content.Length;
-                return true;
-            }
         }
     }
 }
