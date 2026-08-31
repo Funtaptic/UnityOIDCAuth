@@ -27,7 +27,10 @@ namespace Funtaptic.OIDC.Editor
                 { type: 'funtaptic-oidc-callback', url: window.location.href },
                 window.location.origin
             );
-            window.close();
+
+            // Give the opener a moment to receive the message before closing the
+            // callback page. Closing immediately can race the message event in WebGL.
+            window.setTimeout(function () { window.close(); }, 100);
         }());
     </script>
 </body>

@@ -48,6 +48,10 @@ mergeInto(LibraryManager.library, {
         return stringToNewUTF8(callbackUrl);
     },
 
+    FuntapticOIDCIsPopupClosed: function () {
+        return !window.funtapticOidcPopup || window.funtapticOidcPopup.closed ? 1 : 0;
+    },
+
     FuntapticOIDCForwardCallbackToOpener: function () {
         var parameters = new URLSearchParams(window.location.search);
         if (!parameters.has('oidc_callback') || !window.opener) {

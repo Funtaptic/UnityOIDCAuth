@@ -23,6 +23,9 @@ namespace Funtaptic.OIDC.WebGL
         private static extern IntPtr FuntapticOIDCGetCallbackUrl();
 
         [DllImport("__Internal")]
+        private static extern int FuntapticOIDCIsPopupClosed();
+
+        [DllImport("__Internal")]
         private static extern void FuntapticOIDCForwardCallbackToOpener();
 #endif
 
@@ -73,6 +76,7 @@ namespace Funtaptic.OIDC.WebGL
         {
 #if UNITY_WEBGL && !UNITY_EDITOR
             FuntapticOIDCNavigatePopup(options.StartUrl);
+            var closedPopupFrames = 0;
 
             while (!cancellationToken.IsCancellationRequested)
             {
@@ -85,6 +89,25 @@ namespace Funtaptic.OIDC.WebGL
                         ResultType = BrowserResultType.Success,
                         Response = callbackUrl
                     };
+                }
+
+                if (FuntapticOIDCIsPopupClosed() != 0)
+                {
+                    // The callback page posts the message before closing itself. Allow
+                    // a few frames for that message to reach the opener before treating
+                    // a closed popup as a cancelled login.
+                    if (++closedPopupFrames >= 10)
+                    {
+                        return new BrowserResult
+                        {
+                            ResultType = BrowserResultType.UserCancel,
+                            Error = "The authentication popup was closed before the callback was received."
+                        };
+                    }
+                }
+                else
+                {
+                    closedPopupFrames = 0;
                 }
 
                 await Awaitable.NextFrameAsync(cancellationToken);

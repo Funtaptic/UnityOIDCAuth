@@ -23,10 +23,14 @@ namespace Funtaptic.OIDC.WebGL
             if (request == null)
                 throw new ArgumentNullException(nameof(request));
 
+            var body = request.Content == null
+                ? null
+                : await request.Content.ReadAsByteArrayAsync();
+
             await Awaitable.MainThreadAsync();
             cancellationToken.ThrowIfCancellationRequested();
 
-            using var unityRequest = await CreateUnityWebRequest(request);
+            using var unityRequest = CreateUnityWebRequest(request, body);
             var operation = unityRequest.SendWebRequest();
 
             while (!operation.isDone)
@@ -66,20 +70,18 @@ namespace Funtaptic.OIDC.WebGL
             return response;
         }
 
-        private static async Task<UnityWebRequest> CreateUnityWebRequest(HttpRequestMessage request)
+        private static UnityWebRequest CreateUnityWebRequest(HttpRequestMessage request, byte[] body)
         {
             var unityRequest = new UnityWebRequest(request.RequestUri, request.Method.Method)
             {
-                downloadHandler = new DownloadHandlerBuffer()
+                downloadHandler = new DownloadHandlerBuffer(),
+                timeout = 30
             };
 
             try
             {
-                if (request.Content != null)
-                {
-                    var body = await request.Content.ReadAsByteArrayAsync();
+                if (body != null)
                     unityRequest.uploadHandler = new UploadHandlerRaw(body);
-                }
 
                 CopyHeaders(unityRequest, request);
                 return unityRequest;
