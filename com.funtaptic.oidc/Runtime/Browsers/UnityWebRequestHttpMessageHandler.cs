@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Text;
@@ -67,7 +68,7 @@ namespace Funtaptic.OIDC.WebGL
                 ReasonPhrase = unityRequest.error
             };
 
-            response.Content = new StringContent(responseText, Encoding.UTF8);
+            response.Content = new MaterializedHttpContent(responseBytes, request.RequestUri);
 
             var responseHeaders = unityRequest.GetResponseHeaders();
             if (responseHeaders != null)
@@ -137,6 +138,32 @@ namespace Funtaptic.OIDC.WebGL
                 return "<null>";
 
             return $"{uri.Scheme}://{uri.Host}{uri.AbsolutePath}";
+        }
+
+        private sealed class MaterializedHttpContent : HttpContent
+        {
+            private readonly byte[] _content;
+            private readonly Uri _uri;
+
+            public MaterializedHttpContent(byte[] content, Uri uri)
+            {
+                _content = content;
+                _uri = uri;
+            }
+
+            protected override Task SerializeToStreamAsync(Stream stream, TransportContext context)
+            {
+                Debug.Log($"[OIDC WebGL] HTTP response content serialization started: {DescribeUri(_uri)}.");
+                stream.Write(_content, 0, _content.Length);
+                Debug.Log($"[OIDC WebGL] HTTP response content serialization completed: {_content.Length} bytes; {DescribeUri(_uri)}.");
+                return Task.CompletedTask;
+            }
+
+            protected override bool TryComputeLength(out long length)
+            {
+                length = _content.Length;
+                return true;
+            }
         }
     }
 }
