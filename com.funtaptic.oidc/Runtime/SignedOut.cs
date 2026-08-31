@@ -59,10 +59,12 @@ namespace Funtaptic.OIDC
 
                 Debug.Log("[OIDC] OIDC client created. Opening the authentication browser.");
 
-                var result = await client.LoginAsync(new LoginRequest()
+                var loginTask = client.LoginAsync(new LoginRequest()
                 {
                     BrowserTimeout = 300,
                 }, cts.Token);
+                Debug.Log($"[OIDC] LoginAsync task created. Completed: {loginTask.IsCompleted}; Faulted: {loginTask.IsFaulted}.");
+                var result = await loginTask;
 
                 Debug.Log($"[OIDC] OIDC LoginAsync completed. IsError: {result.IsError}; Error: {result.Error ?? "none"}.");
 

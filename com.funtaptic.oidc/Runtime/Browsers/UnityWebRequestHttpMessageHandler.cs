@@ -55,13 +55,15 @@ namespace Funtaptic.OIDC.WebGL
             else
                 Debug.Log($"[OIDC WebGL] HTTP request completed with {(long)unityRequest.responseCode}: {DescribeUri(request.RequestUri)}.");
 
+            var responseBytes = unityRequest.downloadHandler?.data ?? Array.Empty<byte>();
+            Debug.Log($"[OIDC WebGL] HTTP response body materialized: {responseBytes.Length} bytes; {DescribeUri(request.RequestUri)}.");
+
             var response = new HttpResponseMessage((HttpStatusCode)unityRequest.responseCode)
             {
                 RequestMessage = request,
                 ReasonPhrase = unityRequest.error
             };
 
-            var responseBytes = unityRequest.downloadHandler?.data ?? Array.Empty<byte>();
             response.Content = new ByteArrayContent(responseBytes);
 
             var responseHeaders = unityRequest.GetResponseHeaders();
@@ -74,6 +76,7 @@ namespace Funtaptic.OIDC.WebGL
                 }
             }
 
+            Debug.Log($"[OIDC WebGL] HTTP response converted to HttpResponseMessage: {DescribeUri(request.RequestUri)}.");
             return response;
         }
 
