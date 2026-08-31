@@ -209,6 +209,8 @@ namespace Funtaptic.OIDC
                     clientOptions.PostLogoutRedirectUri = $"{baseUrl}oidc-callback.html?oidc_callback=logout";
                     clientOptions.Browser = new WebGLBrowser();
                     clientOptions.BackchannelHandler = new UnityWebRequestHttpMessageHandler();
+                    clientOptions.IdentityTokenValidator = new NoValidationIdentityTokenValidator();
+                    Debug.LogWarning("[OIDC WebGL] ID token signature validation is disabled for WebGL compatibility; the access token must still be validated by the backend.");
                     break;
                 }
                 default:
