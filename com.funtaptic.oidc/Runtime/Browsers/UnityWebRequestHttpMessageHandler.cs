@@ -1,6 +1,7 @@
 using System;
 using System.Net;
 using System.Net.Http;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
@@ -57,6 +58,8 @@ namespace Funtaptic.OIDC.WebGL
 
             var responseBytes = unityRequest.downloadHandler?.data ?? Array.Empty<byte>();
             Debug.Log($"[OIDC WebGL] HTTP response body materialized: {responseBytes.Length} bytes; {DescribeUri(request.RequestUri)}.");
+            var responseText = Encoding.UTF8.GetString(responseBytes);
+            Debug.Log($"[OIDC WebGL] HTTP response text materialized: {responseText.Length} chars; {DescribeUri(request.RequestUri)}.");
 
             var response = new HttpResponseMessage((HttpStatusCode)unityRequest.responseCode)
             {
@@ -64,7 +67,7 @@ namespace Funtaptic.OIDC.WebGL
                 ReasonPhrase = unityRequest.error
             };
 
-            response.Content = new ByteArrayContent(responseBytes);
+            response.Content = new StringContent(responseText, Encoding.UTF8);
 
             var responseHeaders = unityRequest.GetResponseHeaders();
             if (responseHeaders != null)
