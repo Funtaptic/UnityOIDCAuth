@@ -28,11 +28,18 @@ namespace Funtaptic.OIDC
         public async Task<bool> AuthenticateAsync(CancellationToken cancellationToken = default)
         {
             if (IsDoingWork)
+            {
+                Debug.LogWarning("[OIDC] Login request ignored because another login is already in progress.");
                 return false;
+            }
+
+            Debug.Log("[OIDC] Login flow started.");
 
             var authTask = AuthenticateAsyncInternal(cancellationToken);
             _cTask = authTask;
-            return await authTask;
+            var succeeded = await authTask;
+            Debug.Log($"[OIDC] Login flow finished. Success: {succeeded}.");
+            return succeeded;
         }
 
         private async Task<bool> AuthenticateAsyncInternal(CancellationToken cancellationToken = default)
@@ -45,12 +52,19 @@ namespace Funtaptic.OIDC
                 var client = await _authHelper.GetClientAsync();
 
                 if (client == null)
+                {
+                    Debug.LogError("[OIDC] Login stopped because the OIDC client could not be created.");
                     return false;
+                }
+
+                Debug.Log("[OIDC] OIDC client created. Opening the authentication browser.");
 
                 var result = await client.LoginAsync(new LoginRequest()
                 {
                     BrowserTimeout = 300,
                 }, cts.Token);
+
+                Debug.Log($"[OIDC] OIDC LoginAsync completed. IsError: {result.IsError}; Error: {result.Error ?? "none"}.");
 
                 if (result.IsError)
                 {
@@ -71,10 +85,12 @@ namespace Funtaptic.OIDC
                 _authHelper.SetState(new SignedIn(_authHelper,
                     state));
 
+                Debug.Log("[OIDC] Tokens were received and the signed-in state was applied.");
                 return true;
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException exception)
             {
+                Debug.LogWarning($"[OIDC] Login flow was cancelled or timed out: {exception.Message}");
             }
             catch (Exception exception)
             {

@@ -9,15 +9,18 @@ mergeInto(LibraryManager.library, {
                 }
 
                 window.funtapticOidcCallbackUrl = event.data.url;
+                console.log('[OIDC WebGL] Callback message received from the authentication popup.');
             };
             window.addEventListener('message', window.funtapticOidcMessageHandler);
         }
 
         window.funtapticOidcPopup = window.open('about:blank', 'FuntapticOIDC', 'popup=yes,width=520,height=760,scrollbars=yes,resizable=yes');
         if (!window.funtapticOidcPopup) {
+            console.warn('[OIDC WebGL] Browser blocked the authentication popup.');
             return 0;
         }
 
+        console.log('[OIDC WebGL] Authentication popup prepared.');
         window.funtapticOidcPopup.document.title = 'Signing in...';
         window.funtapticOidcPopup.document.body.innerHTML = '<p style="font: 20px sans-serif; padding: 24px">Preparing sign in...</p>';
         return 1;
@@ -32,6 +35,7 @@ mergeInto(LibraryManager.library, {
 
     FuntapticOIDCNavigatePopup: function (urlPointer) {
         if (!window.funtapticOidcPopup || window.funtapticOidcPopup.closed) {
+            console.error('[OIDC WebGL] Cannot navigate authentication popup because it is closed.');
             return;
         }
         window.funtapticOidcPopup.location.href = UTF8ToString(urlPointer);
@@ -59,6 +63,7 @@ mergeInto(LibraryManager.library, {
         }
 
         window.opener.postMessage({ type: 'funtaptic-oidc-callback', url: window.location.href }, window.location.origin);
-        window.close();
+        console.log('[OIDC WebGL] Authentication callback sent to the opener.');
+        window.setTimeout(function () { window.close(); }, 100);
     }
 });

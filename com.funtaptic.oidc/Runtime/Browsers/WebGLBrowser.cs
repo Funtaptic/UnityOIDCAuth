@@ -40,7 +40,11 @@ namespace Funtaptic.OIDC.WebGL
         public static bool PreparePopup()
         {
 #if UNITY_WEBGL && !UNITY_EDITOR
-            return FuntapticOIDCPreparePopup() != 0;
+            var prepared = FuntapticOIDCPreparePopup() != 0;
+            Debug.Log(prepared
+                ? "[OIDC WebGL] Authentication popup prepared."
+                : "[OIDC WebGL] Authentication popup could not be opened; the browser may have blocked it.");
+            return prepared;
 #else
             return false;
 #endif
@@ -50,6 +54,7 @@ namespace Funtaptic.OIDC.WebGL
         {
 #if UNITY_WEBGL && !UNITY_EDITOR
             FuntapticOIDCClosePreparedPopup();
+            Debug.Log("[OIDC WebGL] Authentication popup closed by Unity.");
 #endif
         }
 
@@ -75,6 +80,7 @@ namespace Funtaptic.OIDC.WebGL
         public async Task<BrowserResult> InvokeAsync(BrowserOptions options, CancellationToken cancellationToken = default)
         {
 #if UNITY_WEBGL && !UNITY_EDITOR
+            Debug.Log($"[OIDC WebGL] Navigating authentication popup to {DescribeUrl(options.StartUrl)}.");
             FuntapticOIDCNavigatePopup(options.StartUrl);
             var closedPopupFrames = 0;
 
@@ -84,6 +90,7 @@ namespace Funtaptic.OIDC.WebGL
                 if (callbackPointer != IntPtr.Zero)
                 {
                     var callbackUrl = Marshal.PtrToStringAnsi(callbackPointer);
+                    Debug.Log($"[OIDC WebGL] Authentication callback received from {DescribeUrl(callbackUrl)}.");
                     return new BrowserResult
                     {
                         ResultType = BrowserResultType.Success,
@@ -98,6 +105,7 @@ namespace Funtaptic.OIDC.WebGL
                     // a closed popup as a cancelled login.
                     if (++closedPopupFrames >= 10)
                     {
+                        Debug.LogWarning("[OIDC WebGL] Authentication popup closed before a callback was received.");
                         return new BrowserResult
                         {
                             ResultType = BrowserResultType.UserCancel,
@@ -113,11 +121,22 @@ namespace Funtaptic.OIDC.WebGL
                 await Awaitable.NextFrameAsync(cancellationToken);
             }
 
+            Debug.LogWarning("[OIDC WebGL] Authentication browser wait was cancelled.");
             return new BrowserResult { ResultType = BrowserResultType.UserCancel };
 #else
             await Task.CompletedTask;
             return new BrowserResult { ResultType = BrowserResultType.UnknownError, Error = "WebGL browser is only available in a WebGL player." };
 #endif
+        }
+
+        private static string DescribeUrl(string url)
+        {
+            if (string.IsNullOrWhiteSpace(url))
+                return "<empty>";
+
+            return Uri.TryCreate(url, UriKind.Absolute, out var uri)
+                ? $"{uri.Scheme}://{uri.Host}{uri.AbsolutePath}"
+                : "<invalid-url>";
         }
     }
 }

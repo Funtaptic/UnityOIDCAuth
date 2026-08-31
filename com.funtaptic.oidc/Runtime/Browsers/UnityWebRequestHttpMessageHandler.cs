@@ -30,6 +30,7 @@ namespace Funtaptic.OIDC.WebGL
             await Awaitable.MainThreadAsync();
             cancellationToken.ThrowIfCancellationRequested();
 
+            Debug.Log($"[OIDC WebGL] HTTP {request.Method} request started: {DescribeUri(request.RequestUri)}.");
             using var unityRequest = CreateUnityWebRequest(request, body);
             var operation = unityRequest.SendWebRequest();
 
@@ -44,9 +45,15 @@ namespace Funtaptic.OIDC.WebGL
             if (unityRequest.result == UnityWebRequest.Result.ConnectionError ||
                 unityRequest.result == UnityWebRequest.Result.DataProcessingError)
             {
+                Debug.LogError($"[OIDC WebGL] HTTP request failed: {DescribeUri(request.RequestUri)}; Result: {unityRequest.result}; Error: {unityRequest.error ?? "none"}.");
                 throw new HttpRequestException(
                     $"OIDC request failed for {request.RequestUri}: {unityRequest.error}");
             }
+
+            if (unityRequest.responseCode >= 400)
+                Debug.LogWarning($"[OIDC WebGL] HTTP request returned {(long)unityRequest.responseCode}: {DescribeUri(request.RequestUri)}.");
+            else
+                Debug.Log($"[OIDC WebGL] HTTP request completed with {(long)unityRequest.responseCode}: {DescribeUri(request.RequestUri)}.");
 
             var response = new HttpResponseMessage((HttpStatusCode)unityRequest.responseCode)
             {
@@ -116,6 +123,14 @@ namespace Funtaptic.OIDC.WebGL
                 return;
 
             unityRequest.SetRequestHeader(name, string.Join(", ", values));
+        }
+
+        private static string DescribeUri(Uri uri)
+        {
+            if (uri == null)
+                return "<null>";
+
+            return $"{uri.Scheme}://{uri.Host}{uri.AbsolutePath}";
         }
     }
 }
