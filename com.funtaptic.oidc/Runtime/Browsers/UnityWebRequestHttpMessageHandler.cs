@@ -1,0 +1,119 @@
+using System;
+using System.Net;
+using System.Net.Http;
+using System.Threading;
+using System.Threading.Tasks;
+using UnityEngine;
+using UnityEngine.Networking;
+
+namespace Funtaptic.OIDC.WebGL
+{
+    /// <summary>
+    /// HttpMessageHandler backed by UnityWebRequest for browser builds.
+    /// WebGL cannot use the default System.Net.Http transport because it has
+    /// no direct socket access; UnityWebRequest delegates the request to the
+    /// browser's Fetch/XMLHttpRequest implementation instead.
+    /// </summary>
+    internal sealed class UnityWebRequestHttpMessageHandler : HttpMessageHandler
+    {
+        protected override async Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            if (request == null)
+                throw new ArgumentNullException(nameof(request));
+
+            await Awaitable.MainThreadAsync();
+            cancellationToken.ThrowIfCancellationRequested();
+
+            using var unityRequest = await CreateUnityWebRequest(request);
+            var operation = unityRequest.SendWebRequest();
+
+            while (!operation.isDone)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                await Awaitable.NextFrameAsync(cancellationToken);
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (unityRequest.result == UnityWebRequest.Result.ConnectionError ||
+                unityRequest.result == UnityWebRequest.Result.DataProcessingError)
+            {
+                throw new HttpRequestException(
+                    $"OIDC request failed for {request.RequestUri}: {unityRequest.error}");
+            }
+
+            var response = new HttpResponseMessage((HttpStatusCode)unityRequest.responseCode)
+            {
+                RequestMessage = request,
+                ReasonPhrase = unityRequest.error
+            };
+
+            var responseBytes = unityRequest.downloadHandler?.data ?? Array.Empty<byte>();
+            response.Content = new ByteArrayContent(responseBytes);
+
+            var responseHeaders = unityRequest.GetResponseHeaders();
+            if (responseHeaders != null)
+            {
+                foreach (var header in responseHeaders)
+                {
+                    if (!response.Headers.TryAddWithoutValidation(header.Key, header.Value))
+                        response.Content.Headers.TryAddWithoutValidation(header.Key, header.Value);
+                }
+            }
+
+            return response;
+        }
+
+        private static async Task<UnityWebRequest> CreateUnityWebRequest(HttpRequestMessage request)
+        {
+            var unityRequest = new UnityWebRequest(request.RequestUri, request.Method.Method)
+            {
+                downloadHandler = new DownloadHandlerBuffer()
+            };
+
+            try
+            {
+                if (request.Content != null)
+                {
+                    var body = await request.Content.ReadAsByteArrayAsync();
+                    unityRequest.uploadHandler = new UploadHandlerRaw(body);
+                }
+
+                CopyHeaders(unityRequest, request);
+                return unityRequest;
+            }
+            catch
+            {
+                unityRequest.Dispose();
+                throw;
+            }
+        }
+
+        private static void CopyHeaders(UnityWebRequest unityRequest, HttpRequestMessage request)
+        {
+            foreach (var header in request.Headers)
+                SetHeader(unityRequest, header.Key, header.Value);
+
+            if (request.Content == null)
+                return;
+
+            foreach (var header in request.Content.Headers)
+                SetHeader(unityRequest, header.Key, header.Value);
+        }
+
+        private static void SetHeader(
+            UnityWebRequest unityRequest,
+            string name,
+            System.Collections.Generic.IEnumerable<string> values)
+        {
+            // Unity calculates this header from the upload handler and rejects
+            // attempts to set it explicitly.
+            if (string.Equals(name, "Content-Length", StringComparison.OrdinalIgnoreCase))
+                return;
+
+            unityRequest.SetRequestHeader(name, string.Join(", ", values));
+        }
+    }
+}

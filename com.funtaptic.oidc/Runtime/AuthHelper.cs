@@ -208,6 +208,7 @@ namespace Funtaptic.OIDC
                     clientOptions.RedirectUri = $"{baseUrl}oidc-callback.html?oidc_callback=login";
                     clientOptions.PostLogoutRedirectUri = $"{baseUrl}oidc-callback.html?oidc_callback=logout";
                     clientOptions.Browser = new WebGLBrowser();
+                    clientOptions.BackchannelHandler = new UnityWebRequestHttpMessageHandler();
                     break;
                 }
                 default:
