@@ -44,16 +44,16 @@ mergeInto(LibraryManager.library, {
 
     FuntapticOIDCGetCallbackUrl: function () {
         if (!window.funtapticOidcCallbackUrl) {
+            if (!window.funtapticOidcPopup || window.funtapticOidcPopup.closed) {
+                // Reserved non-zero pointer value understood by WebGLBrowser.
+                return 1;
+            }
             return 0;
         }
 
         var callbackUrl = window.funtapticOidcCallbackUrl;
         window.funtapticOidcCallbackUrl = null;
         return stringToNewUTF8(callbackUrl);
-    },
-
-    FuntapticOIDCIsPopupClosed: function () {
-        return !window.funtapticOidcPopup || window.funtapticOidcPopup.closed ? 1 : 0;
     },
 
     FuntapticOIDCForwardCallbackToOpener: function () {

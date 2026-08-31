@@ -23,11 +23,10 @@ namespace Funtaptic.OIDC.WebGL
         private static extern IntPtr FuntapticOIDCGetCallbackUrl();
 
         [DllImport("__Internal")]
-        private static extern int FuntapticOIDCIsPopupClosed();
-
-        [DllImport("__Internal")]
         private static extern void FuntapticOIDCForwardCallbackToOpener();
 #endif
+
+        private const long PopupClosedPointerValue = 1;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void ForwardCallbackToOpener()
@@ -89,27 +88,28 @@ namespace Funtaptic.OIDC.WebGL
                 var callbackPointer = FuntapticOIDCGetCallbackUrl();
                 if (callbackPointer != IntPtr.Zero)
                 {
-                    var callbackUrl = Marshal.PtrToStringAnsi(callbackPointer);
-                    Debug.Log($"[OIDC WebGL] Authentication callback received from {DescribeUrl(callbackUrl)}.");
-                    return new BrowserResult
+                    if (callbackPointer.ToInt64() == PopupClosedPointerValue)
                     {
-                        ResultType = BrowserResultType.Success,
-                        Response = callbackUrl
-                    };
-                }
-
-                if (FuntapticOIDCIsPopupClosed() != 0)
-                {
-                    // The callback page posts the message before closing itself. Allow
-                    // a few frames for that message to reach the opener before treating
-                    // a closed popup as a cancelled login.
-                    if (++closedPopupFrames >= 10)
+                        // The JavaScript callback function uses this reserved pointer
+                        // value to report that the popup was closed without a callback.
+                        if (++closedPopupFrames >= 10)
+                        {
+                            Debug.LogWarning("[OIDC WebGL] Authentication popup closed before a callback was received.");
+                            return new BrowserResult
+                            {
+                                ResultType = BrowserResultType.UserCancel,
+                                Error = "The authentication popup was closed before the callback was received."
+                            };
+                        }
+                    }
+                    else
                     {
-                        Debug.LogWarning("[OIDC WebGL] Authentication popup closed before a callback was received.");
+                        var callbackUrl = Marshal.PtrToStringAnsi(callbackPointer);
+                        Debug.Log($"[OIDC WebGL] Authentication callback received from {DescribeUrl(callbackUrl)}.");
                         return new BrowserResult
                         {
-                            ResultType = BrowserResultType.UserCancel,
-                            Error = "The authentication popup was closed before the callback was received."
+                            ResultType = BrowserResultType.Success,
+                            Response = callbackUrl
                         };
                     }
                 }
