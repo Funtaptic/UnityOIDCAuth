@@ -25,17 +25,31 @@ namespace Funtaptic.OIDC
             _authHelper = coreBehaviour;
         }
 
-        public async Task<bool> AuthenticateAsync(CancellationToken cancellationToken = default)
+        public Task<bool> AuthenticateAsync(CancellationToken cancellationToken = default)
+        {
+            return StartAuthenticationAsync(false, cancellationToken);
+        }
+
+        /// <summary>
+        /// Opens the provider's registration page and signs in after registration.
+        /// Requires a provider that supports prompt=create and allows user registration.
+        /// </summary>
+        public Task<bool> RegisterAsync(CancellationToken cancellationToken = default)
+        {
+            return StartAuthenticationAsync(true, cancellationToken);
+        }
+
+        private async Task<bool> StartAuthenticationAsync(bool register, CancellationToken cancellationToken)
         {
             if (IsDoingWork)
                 return false;
 
-            var authTask = AuthenticateAsyncInternal(cancellationToken);
+            var authTask = AuthenticateAsyncInternal(register, cancellationToken);
             _cTask = authTask;
             return await authTask;
         }
 
-        private async Task<bool> AuthenticateAsyncInternal(CancellationToken cancellationToken = default)
+        private async Task<bool> AuthenticateAsyncInternal(bool register, CancellationToken cancellationToken)
         {
             try
             {
@@ -47,10 +61,15 @@ namespace Funtaptic.OIDC
                 if (client == null)
                     return false;
 
-                var result = await client.LoginAsync(new LoginRequest()
+                var request = new LoginRequest
                 {
-                    BrowserTimeout = 300,
-                }, cts.Token);
+                    BrowserTimeout = 300
+                };
+
+                if (register)
+                    request.FrontChannelExtraParameters.Add("prompt", "create");
+
+                var result = await client.LoginAsync(request, cts.Token);
 
                 if (result.IsError)
                 {

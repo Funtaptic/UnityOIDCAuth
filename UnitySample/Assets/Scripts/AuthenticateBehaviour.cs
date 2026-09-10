@@ -64,6 +64,11 @@ public class AuthenticateBehaviour : MonoBehaviour
                     _ = notAuthenticatedStateBehaviour.AuthenticateAsync();
                 }
 
+                if (GUILayout.Button("Register", GUILayout.Height(250), GUILayout.Width(200)))
+                {
+                    _ = notAuthenticatedStateBehaviour.RegisterAsync();
+                }
+
                 break;
             }
             case SignedIn authenticatedStateBehaviour:
