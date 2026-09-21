@@ -1,3 +1,5 @@
+Requires Unity 6.0 (6000.0) or newer.
+
 ## What `com.funtaptic.oidc` does
 
 `com.funtaptic.oidc` connects a Unity application to an existing OpenID Connect
@@ -128,7 +130,7 @@ the application. On Android and iOS, the callback scheme comes from the
 
 ## Dependencies
 
-Install the following dependencies before adding the OIDC package to your project.
+Install the NuGet dependencies before OIDC, then add EDM for Android as shown below.
 
 ### NuGetForUnity
 
@@ -139,9 +141,21 @@ does not install NuGet packages.
 ### External Dependency Manager for Unity
 
 [External Dependency Manager for Unity](https://github.com/googlesamples/unity-jar-resolver)
-resolves the Android library declared in `AuthDependencies.xml`. In particular, it
-adds AndroidX Browser to Android builds so the sign-in page can open in a Chrome
-Custom Tab.
+1.2.189 or newer is required for Android. It reads `AuthDependencies.xml` and adds
+AndroidX Browser 1.8.0 for Chrome Custom Tabs login. OIDC only ensures the
+`Assets/Plugins/Android` folder exists; EDM manages the Gradle templates and dependencies.
+
+Select Android as the build platform. Accept EDM's **Enable** prompts for
+Android auto-resolution and Gradle templates, then run
+**Assets > External Dependency Manager > Android Resolver > Force Resolve**
+before the first Android build. Wait for **Resolution Succeeded**.
+
+If an existing project disabled template integration, enable **Custom Main Gradle
+Template**, **Custom Gradle Properties Template** and **Custom Gradle Settings
+Template** in Android Player Settings > Publishing Settings. In Android Resolver >
+Settings, enable **Patch mainTemplate.gradle**, **Use Jetifier**,
+**Patch gradleTemplate.properties** and **Copy and patch settingsTemplate.gradle
+from 2022.2** before resolving again. Keep your existing templates and customizations.
 
 ### Duende.IdentityModel.OidcClient
 
@@ -161,20 +175,21 @@ browser integrations around this client.
    https://github.com/GlitchEnzo/NuGetForUnity.git?path=/src/NuGetForUnity
    ```
 
-3. Repeat the same Package Manager flow for External Dependency Manager:
+3. Open **NuGet > Manage NuGet Packages** and install
+   `Duende.IdentityModel.OidcClient` version `7.1.0`.
+
+4. Return to Package Manager, select **+ > Install package from git URL**, and enter:
+
+   ```text
+   https://github.com/Funtaptic/UnityOIDCAuth.git?path=/com.funtaptic.oidc
+   ```
+
+5. Let Unity finish importing and compiling OIDC.
+
+6. **Android only:** install External Dependency Manager through Package Manager:
 
    ```text
    https://github.com/googlesamples/unity-jar-resolver.git?path=upm
    ```
 
-4. Let Unity finish importing both packages.
-
-5. In Unity, open the NuGet package manager and install
-   `Duende.IdentityModel.OidcClient`.
-
-6. Return to the Unity Package Manager, select
-   **+ > Install package from git URL**, and enter:
-
-   ```text
-   https://github.com/Funtaptic/UnityOIDCAuth.git?path=/com.funtaptic.oidc
-   ```
+   Follow the Android resolution steps in **External Dependency Manager for Unity** above.
