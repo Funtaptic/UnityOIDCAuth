@@ -58,6 +58,22 @@ scheme to the generated manifest and the iOS scheme to `Info.plist`. A build wil
 fail with a clear validation error if the asset is missing or the scheme for the
 selected mobile platform is empty.
 
+## Android incremental builds (0.2.3)
+
+The Android build processor reuses the existing authentication activity instead
+of adding another copy on each build. It merges duplicate activity declarations
+left by earlier versions, preserving their routes, metadata and nonconflicting
+attributes. Conflicting activity attributes still produce an explicit error.
+Login/logout routes already narrowed by PixiPlay remain unchanged on later builds.
+
+Update the `com.funtaptic.oidc` Git package in Unity Package Manager to obtain this
+fix. Updating PixiPlay alone does not update a locked OIDC Git dependency. No
+scene or settings changes, or routine deletion of `Library/Bee`, are required.
+
+Package regression tests can be enabled by adding `com.funtaptic.oidc` to the
+project manifest's `testables` list and running `AndroidAuthenticationManifestTests`
+in the Unity EditMode Test Runner.
+
 ## Usage example
 
 Add `AuthHelper` to a GameObject, then configure its identity-provider URL, client
