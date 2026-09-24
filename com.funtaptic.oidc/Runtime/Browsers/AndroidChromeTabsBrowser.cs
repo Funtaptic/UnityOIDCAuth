@@ -1,7 +1,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Web;
+using System.Net;
 using Duende.IdentityModel.OidcClient.Browser;
 
 using UnityEngine;
@@ -127,7 +127,7 @@ namespace Funtaptic.OIDC.Android
                                 $"Unexpected Android callback URI scheme '{uri.Scheme}'.");
                         }
 
-                        var queryParams = HttpUtility.UrlDecode(uri.Query);
+                        var queryParams = WebUtility.UrlDecode(uri.Query);
 
                         completionSource.SetResult(new BrowserResult()
                         {

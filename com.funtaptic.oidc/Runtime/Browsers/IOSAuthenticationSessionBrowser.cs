@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Web;
+using System.Net;
 using Duende.IdentityModel.OidcClient.Browser;
 using UnityEngine;
 
@@ -192,7 +192,7 @@ namespace Funtaptic.OIDC.IOS
             {
                 var uri = new Uri(url);
                 var response = string.IsNullOrEmpty(uri.Query) ? uri.Fragment : uri.Query;
-                var responseParams = HttpUtility.UrlDecode(response);
+                var responseParams = WebUtility.UrlDecode(response);
 
                 TrySetBrowserResult(new BrowserResult
                 {

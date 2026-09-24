@@ -3,7 +3,6 @@ using System.Net;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Web;
 using Duende.IdentityModel.OidcClient;
 using Duende.IdentityModel.OidcClient.Browser;
 using UnityEngine;
@@ -39,7 +38,7 @@ namespace Funtaptic.OIDC.Standalone
 
                         WriteResponse(response, "You can now close this window and return to the game.");
 
-                        var queryParams = HttpUtility.UrlDecode(request.Url.Query);
+                        var queryParams = WebUtility.UrlDecode(request.Url.Query);
                         _loginTaskCompletionSource.SetResult(new BrowserResult()
                         {
                             ResultType = BrowserResultType.Success,
