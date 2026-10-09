@@ -44,6 +44,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3e20d350538e45578b2dca81a0f74746, type: 3}
   m_Name: 
   m_EditorClassIdentifier: pixiplay.auth::PixiPlay.Auth.AuthBehaviour
-  _authUrl: https://dev.auth.pixiplay.eu/realms/pixiplay-users
-  _clientId: unity-mother-app
+  _authUrl: https://dev.auth.rethinkplatform.org/realms/rethink
+  _clientId: rethink-game
   _cacheFileName: token_cache.json
+  _scopes: openid profile roles offline_access

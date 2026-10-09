@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
-using Duende.IdentityModel.OidcClient;
 using UnityEngine;
 
 namespace Funtaptic.OIDC
@@ -61,28 +60,25 @@ namespace Funtaptic.OIDC
                 if (client == null)
                     return false;
 
-                var request = new LoginRequest
+                // if (register)
+                //     request.FrontChannelExtraParameters.Add("prompt", "create");
+
+                var result = await client.LoginAsync(TimeSpan.FromSeconds(300), cts.Token);
+
+                if (result.IsRight)
                 {
-                    BrowserTimeout = 300
-                };
-
-                if (register)
-                    request.FrontChannelExtraParameters.Add("prompt", "create");
-
-                var result = await client.LoginAsync(request, cts.Token);
-
-                if (result.IsError)
-                {
-                    Debug.LogError($"Failed to login: {result.Error}");
+                    Debug.LogError($"Failed to login: {result.Right}");
                     return false;
                 }
 
+                var tokens = result.Left;
+
                 var state = new AuthState()
                 {
-                    AccessTokenExpiration = result.AccessTokenExpiration,
-                    AccessToken = result.AccessToken,
-                    IdentityToken = result.IdentityToken,
-                    RefreshToken = result.RefreshToken
+                    AccessTokenExpiration = tokens.ExpiresAt.Value,
+                    AccessToken = tokens.AccessToken,
+                    IdentityToken = tokens.IdToken,
+                    RefreshToken = tokens.RefreshToken
                 };
 
                 _authHelper.SaveToCache(state);

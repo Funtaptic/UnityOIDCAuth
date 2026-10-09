@@ -15,6 +15,8 @@ namespace Funtaptic.OIDC
 
         public string AndroidScheme = DefaultAndroidScheme;
         public string IOSScheme = DefaultIOSScheme;
+        [Tooltip("Callback page relative to the hosted WebGL build URL. Must remain on the same origin.")]
+        public string WebGLCallbackPath = "oidc-callback.html";
 
         public static OidcSettings Instance
         {

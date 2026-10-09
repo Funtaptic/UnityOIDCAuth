@@ -1,8 +1,6 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using Duende.IdentityModel.OidcClient;
-using Duende.IdentityModel.OidcClient.Results;
 using UnityEngine;
 
 namespace Funtaptic.OIDC
@@ -37,25 +35,25 @@ namespace Funtaptic.OIDC
             }
         }
 
-        public async Task<UserInfoResult> GetUserInfoAsync(CancellationToken cancellationToken = default)
-        {
-            using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken,
-                _disposeCancellationTokenSource.Token);
-
-            var client = await _authHelper.GetClientAsync();
-
-            if (client == null)
-                throw new InvalidOperationException("Client is null");
-
-            var userInfo = await client.GetUserInfoAsync(
-                State.AccessToken,
-                cts.Token);
-
-            if (userInfo.IsError)
-                throw new InvalidOperationException(userInfo.Error);
-
-            return userInfo;
-        }
+        // public async Task<UserInfoResult> GetUserInfoAsync(CancellationToken cancellationToken = default)
+        // {
+        //     using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken,
+        //         _disposeCancellationTokenSource.Token);
+        //
+        //     var client = await _authHelper.GetClientAsync();
+        //
+        //     if (client == null)
+        //         throw new InvalidOperationException("Client is null");
+        //
+        //     var userInfo = await client.GetUserInfoAsync(
+        //         State.AccessToken,
+        //         cts.Token);
+        //
+        //     if (userInfo.IsError)
+        //         throw new InvalidOperationException(userInfo.Error);
+        //
+        //     return userInfo;
+        // }
 
         private async Task DoLogOutAsync()
         {
@@ -66,10 +64,8 @@ namespace Funtaptic.OIDC
 
             try
             {
-                await client.LogoutAsync(new LogoutRequest
-                {
-                    IdTokenHint = State.IdentityToken
-                }, default);
+                //State.IdentityToken
+                await client.LogoutAsync(default);
             }
             catch (Exception e)
             {
@@ -116,12 +112,11 @@ namespace Funtaptic.OIDC
             }
 
             var result =
-                await client.RefreshTokenAsync(State.RefreshToken, null, null,
-                    _disposeCancellationTokenSource.Token);
+                await client.RefreshAsync(State.RefreshToken, _disposeCancellationTokenSource.Token);
 
-            if (result.IsError)
+            if (result.IsRight)
             {
-                if (string.Equals(result.Error, "invalid_grant", StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(result.Right.Message, "invalid_grant", StringComparison.OrdinalIgnoreCase))
                 {
                     // A revoked or expired refresh token is a normal sign-out
                     // condition when restoring a cached session. TryRefreshAsync
@@ -130,7 +125,7 @@ namespace Funtaptic.OIDC
                 }
                 else
                 {
-                    Debug.LogError($"Failed to refresh token: {result.Error}");
+                    Debug.LogError($"Failed to refresh token: {result.Right.Message}");
                 }
 
                 return false;
@@ -138,16 +133,18 @@ namespace Funtaptic.OIDC
 
             Debug.Log("Token refreshed successfully.");
 
+            var tokens = result.Left;
+            
             State = new AuthState()
             {
-                AccessToken = result.AccessToken,
+                AccessToken = tokens.AccessToken,
                 // Some providers omit a replacement refresh token when token
                 // rotation is disabled. Keep the existing one in that case.
-                RefreshToken = string.IsNullOrWhiteSpace(result.RefreshToken)
+                RefreshToken = string.IsNullOrWhiteSpace(tokens.RefreshToken)
                     ? State.RefreshToken
-                    : result.RefreshToken,
-                IdentityToken = result.IdentityToken,
-                AccessTokenExpiration = result.AccessTokenExpiration
+                    : tokens.RefreshToken,
+                IdentityToken = tokens.IdToken,
+                AccessTokenExpiration = tokens.ExpiresAt.Value
             };
 
             _authHelper.SaveToCache(State);

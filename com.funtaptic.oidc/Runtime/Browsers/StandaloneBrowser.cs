@@ -3,8 +3,6 @@ using System.Net;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using Duende.IdentityModel.OidcClient;
-using Duende.IdentityModel.OidcClient.Browser;
 using UnityEngine;
 using Debug = UnityEngine.Debug;
 
@@ -14,116 +12,90 @@ namespace Funtaptic.OIDC.Standalone
     {
         public class StandaloneBrowser : IBrowser
         {
-            private HttpListener _httpListener;
+             public static Uri RequireLoopbackRedirect(string value)
+        {
+            if (!Uri.TryCreate(value, UriKind.Absolute, out var uri) ||
+                uri.Scheme != Uri.UriSchemeHttp ||
+                !(uri.Host == "localhost" || uri.Host == "127.0.0.1") ||
+                uri.Port <= 0 || !string.IsNullOrEmpty(uri.Query) ||
+                !string.IsNullOrEmpty(uri.Fragment) || !string.IsNullOrEmpty(uri.UserInfo))
+                throw new InvalidOperationException(
+                    "Use an HTTP localhost or 127.0.0.1 redirect with no query or fragment.");
+            return uri;
+        }
 
-            private Thread _listenerThread;
-
-            private TaskCompletionSource<BrowserResult> _loginTaskCompletionSource;
-
-            private OidcClient _client;
-
-            public StandaloneBrowser()
+        public async Awaitable<Either<Uri, Error>> AuthorizeAsync(BrowserOptions options,
+            CancellationToken cancellationToken)
+        {
+            try
             {
-            }
+                var redirect = RequireLoopbackRedirect(options.EndUrl);
 
-            private void ListenForCallback()
-            {
-                while (_httpListener.IsListening)
-                {
-                    try
-                    {
-                        var context = _httpListener.GetContext();
-                        var request = context.Request;
-                        var response = context.Response;
-
-                        WriteResponse(response, "You can now close this window and return to the game.");
-
-                        var queryParams = WebUtility.UrlDecode(request.Url.Query);
-                        _loginTaskCompletionSource.SetResult(new BrowserResult()
-                        {
-                            ResultType = BrowserResultType.Success,
-                            Response = queryParams
-                        });
-                        break;
-                    }
-                    catch (HttpListenerException e)
-                    {
-                        if (e.ErrorCode == 500) //listener closed
-                            return;
-
-                        throw;
-                    }
-                }
-            }
-
-            private static void WriteResponse(HttpListenerResponse response, string message)
-            {
-                var responseString =
-                    $"<html><h1>{message}</h1></html>";
-
-                var buffer = Encoding.UTF8.GetBytes(responseString);
-                response.ContentLength64 = buffer.Length;
-                response.OutputStream.Write(buffer, 0, buffer.Length);
-                response.OutputStream.Close();
-            }
-
-            public async Task<BrowserResult> InvokeAsync(BrowserOptions options,
-                CancellationToken cancellationToken = default)
-            {
-                _loginTaskCompletionSource = new TaskCompletionSource<BrowserResult>();
-
-                var autoExpire = new CancellationTokenSource(options.Timeout);
-
-                using var linkedSource =
-                    CancellationTokenSource.CreateLinkedTokenSource(autoExpire.Token, cancellationToken);
-
+                // Start listening before opening the browser, as in StandaloneBrowser.
+                using var listener = new HttpListener();
+                listener.Prefixes.Add(redirect.GetLeftPart(UriPartial.Authority) + "/");
                 try
                 {
-                    var endUri = new Uri(options.EndUrl);
-                    var toListen = endUri.GetLeftPart(UriPartial.Authority);
-
-                    _httpListener = new HttpListener();
-                    _httpListener.Prefixes.Add(toListen + "/");
-                    _httpListener.Start();
-
-                    await using var canceled = cancellationToken.Register(() =>
-                    {
-                        _loginTaskCompletionSource.SetCanceled();
-                        _httpListener.Stop();
-                    });
-
-                    await using var registration = autoExpire.Token.Register(() =>
-                    {
-                        _loginTaskCompletionSource.SetResult(new BrowserResult()
-                        {
-                            ResultType = BrowserResultType.Timeout,
-                            Error = "Timed out"
-                        });
-
-                        _httpListener.Stop();
-                    });
-
-                    _listenerThread = new Thread(ListenForCallback);
-                    _listenerThread.Start();
-                    Application.OpenURL(options.StartUrl);
-                    return await _loginTaskCompletionSource.Task;
+                    listener.Start();
                 }
-                catch (Exception e)
+                catch (HttpListenerException)
                 {
-                    Debug.LogException(e);
+                    return new Error("Could not listen on the redirect port. Choose an available port and register the matching redirect URI with the provider.");
+                }
 
-                    return new BrowserResult()
-                    {
-                        ResultType = BrowserResultType.UnknownError,
-                        Error = e.Message
-                    };
-                }
-                finally
-                {
-                    _httpListener.Stop();
-                    _listenerThread.Join();
-                }
+                // The caller's token covers both cancellation and the overall login timeout.
+                // Closing the listener also releases any outstanding GetContextAsync operation.
+                using var registration = cancellationToken.Register(() => listener.Close());
+                cancellationToken.ThrowIfCancellationRequested();
+                Application.OpenURL(options.StartUrl);
+                var callback = await ListenForCallbackAsync(listener, redirect, cancellationToken);
+
+                return callback;
             }
+            catch (Exception) when (cancellationToken.IsCancellationRequested)
+            {
+                return new Error("Operation canceled or timed out.");
+            }
+        }
+
+        private static async Awaitable<Uri> ListenForCallbackAsync(HttpListener listener,
+            Uri redirect, CancellationToken cancellationToken)
+        {
+            while (true)
+            {
+                var context = await listener.GetContextAsync();
+                cancellationToken.ThrowIfCancellationRequested();
+                var callback = context.Request.Url;
+                context.Response.StatusCode = 200;
+                await WriteResponseAsync(context.Response,
+                    "Callback received. You can now close this window and return to Unity to check the result.",
+                    cancellationToken);
+                return callback;
+            }
+        }
+
+        private static async Awaitable WriteResponseAsync(HttpListenerResponse response,
+            string message, CancellationToken cancellationToken)
+        {
+            response.ContentType = "text/html; charset=utf-8";
+            response.Headers["Cache-Control"] = "no-store";
+            response.Headers["Referrer-Policy"] = "no-referrer";
+            var buffer = Encoding.UTF8.GetBytes(
+                "<!doctype html><title>OAuth callback</title><p>" + WebUtility.HtmlEncode(message) + "</p>");
+            try
+            {
+                response.ContentLength64 = buffer.Length;
+                await response.OutputStream.WriteAsync(buffer, 0, buffer.Length, cancellationToken);
+            }
+            catch (HttpListenerException)
+            {
+                /* Closing the browser tab must not lose a valid code. */
+            }
+            finally
+            {
+                response.Close();
+            }
+        }
         }
     }
 }

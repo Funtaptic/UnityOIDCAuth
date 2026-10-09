@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <LangVersion>9.0</LangVersion>
+    <NuGetAudit>false</NuGetAudit>
+    <UnityEditorPath Condition="'$(UnityEditorPath)' == ''">$(UNITY_EDITOR_PATH)</UnityEditorPath>
+    <DefineConstants>UNITY_EDITOR;UNITY_STANDALONE_WIN</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../UnitySample/Assets/Scripts/ManualOAuth/*.cs" />
+    <Reference Include="$(UnityEditorPath)/Data/Managed/UnityEngine/*.dll" />
+    <Reference Include="../../UnitySample/Packages/nuget-packages/InstalledPackages/*/lib/netstandard2.0/*.dll" />
+  </ItemGroup>
+</Project>

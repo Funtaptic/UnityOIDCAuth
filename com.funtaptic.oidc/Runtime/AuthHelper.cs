@@ -1,13 +1,14 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Net;
+using System.Net.Http;
 using System.Net.Sockets;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
-using Duende.IdentityModel.Client;
-using Duende.IdentityModel.OidcClient;
-using Funtaptic.OIDC.Android;
-using Funtaptic.OIDC.IOS;
+//using Funtaptic.OIDC.Android;
+// using Funtaptic.OIDC.IOS;
+// using Funtaptic.OIDC.WebGL;
 using Funtaptic.OIDC.Standalone.Funtaptic.OIDC.Auth;
 using UnityEngine;
 
@@ -22,15 +23,13 @@ namespace Funtaptic.OIDC
         [SerializeField] private string _cacheFileName = "token_cache.json";
 
         [SerializeField] private string _scopes = "openid profile roles offline_access";
-        
-        private DiscoveryPolicy _discoveryPolicy;
 
         private string CacheFilePath => $"{Application.persistentDataPath}/{_cacheFileName}.json";
 
         public IAuthState State { get; private set; }
 
         public event Action<IAuthState> StateChanged;
-        
+
         public string AuthUrl
         {
             get => _authUrl;
@@ -48,7 +47,7 @@ namespace Funtaptic.OIDC
             get => _cacheFileName;
             set => _cacheFileName = value;
         }
-        
+
         public string Scopes
         {
             get => _scopes;
@@ -58,6 +57,7 @@ namespace Funtaptic.OIDC
         public void DeleteCache()
         {
             File.Delete(CacheFilePath);
+            //WebGLBrowser.FlushCache();
         }
 
         public bool TryLoadFromCache(out AuthState cache)
@@ -76,21 +76,13 @@ namespace Funtaptic.OIDC
         public void SaveToCache(AuthState cache)
         {
             File.WriteAllText(CacheFilePath, JsonSerializer.Serialize(cache));
+            //WebGLBrowser.FlushCache();
         }
 
-        private DiscoveryCache _discoveryCache;
-        
-        private OidcClient _client;
+        private OAuthClient _client;
 
         private void Awake()
         {
-            _discoveryPolicy = new DiscoveryPolicy()
-            {
-                RequireHttps = false
-            };
-
-            _discoveryCache = new DiscoveryCache(_authUrl, _discoveryPolicy);
-
             if (TryLoadFromCache(out var cache))
             {
                 SetState(new SignedIn(this, cache));
@@ -120,51 +112,41 @@ namespace Funtaptic.OIDC
             return port;
         }
 
-        public async Task<OidcClient> GetClientAsync()
+        public async Task<OAuthClient> GetClientAsync()
         {
-            if(_client != null)
+            if (_client != null)
                 return _client;
-            
-            var discoveryDocument = await _discoveryCache.GetAsync();
 
-            if (discoveryDocument.IsError)
-            {
-                Debug.LogError(discoveryDocument.Error);
+            var discoveryDocument = await DiscoveryService.DiscoverAsync(_authUrl, destroyCancellationToken);
+
+            if (discoveryDocument.IsRight)
                 return null;
-            }
-
-            var options = new OidcClientOptions
+            
+            var clientSettings = new ClientSettings()
             {
-                Authority = _authUrl,
                 ClientId = _clientId,
                 Scope = _scopes,
-                ProviderInformation = new ProviderInformation
-                {
-                    IssuerName = discoveryDocument.Issuer,
-                    AuthorizeEndpoint = discoveryDocument.AuthorizeEndpoint,
-                    TokenEndpoint = discoveryDocument.TokenEndpoint,
-                    EndSessionEndpoint = discoveryDocument.EndSessionEndpoint,
-                    UserInfoEndpoint = discoveryDocument.UserInfoEndpoint,
-                    KeySet = discoveryDocument.KeySet
-                },
-                LoadProfile = false,
-                Policy = new Policy
-                {
-                    Discovery = _discoveryPolicy
-                }
             };
+            SetupPlatform(clientSettings);
 
-            SetupPlatform(options);
-
-            options.LoggerFactory.AddProvider(UnityAuthLoggerProvider.Instance);
-            _client = new OidcClient(options);
+            _client = new OAuthClient(discoveryDocument.Left, clientSettings);
             return _client;
         }
 
-        private static void SetupPlatform(OidcClientOptions clientOptions)
+        private static void SetupPlatform(ClientSettings clientOptions)
         {
             switch (Application.platform)
             {
+                case RuntimePlatform.WebGLPlayer:
+                {
+                    // var redirectUri = WebGLBrowser.ResolveRedirectUri(
+                    //     Application.absoluteURL, OidcSettings.Instance.WebGLCallbackPath);
+                    // clientOptions.RedirectUri = redirectUri;
+                    // clientOptions.PostLogoutRedirectUri = redirectUri;
+                    // clientOptions.Browser = new WebGLBrowser();
+                    // break;
+                    throw new NotImplementedException();
+                }
                 case RuntimePlatform.OSXPlayer:
                 case RuntimePlatform.OSXEditor:
                 case RuntimePlatform.WindowsPlayer:
@@ -181,19 +163,21 @@ namespace Funtaptic.OIDC
                 }
                 case RuntimePlatform.Android:
                 {
-                    var scheme = OidcSettings.Instance.AndroidScheme;
-                    clientOptions.RedirectUri = $"{scheme}://login_callback";
-                    clientOptions.PostLogoutRedirectUri = $"{scheme}://logout_callback";
-                    clientOptions.Browser = new AndroidChromeTabsBrowser(scheme);
-                    break;
+                    // var scheme = OidcSettings.Instance.AndroidScheme;
+                    // clientOptions.RedirectUri = $"{scheme}://login_callback";
+                    // clientOptions.PostLogoutRedirectUri = $"{scheme}://logout_callback";
+                    // clientOptions.Browser = new AndroidChromeTabsBrowser(scheme);
+                    // break;
+                    throw new NotImplementedException();
                 }
                 case RuntimePlatform.IPhonePlayer:
                 {
-                    var scheme = OidcSettings.Instance.IOSScheme;
-                    clientOptions.RedirectUri = $"{scheme}://login_callback";
-                    clientOptions.PostLogoutRedirectUri = $"{scheme}://logout_callback";
-                    clientOptions.Browser = new IOSAuthenticationSessionBrowser(scheme);
-                    break;
+                    // var scheme = OidcSettings.Instance.IOSScheme;
+                    // clientOptions.RedirectUri = $"{scheme}://login_callback";
+                    // clientOptions.PostLogoutRedirectUri = $"{scheme}://logout_callback";
+                    // clientOptions.Browser = new IOSAuthenticationSessionBrowser(scheme);
+                    // break;
+                    throw new NotImplementedException();
                 }
                 default:
                     throw new NotSupportedException($"Unsupported platform: {Application.platform}");

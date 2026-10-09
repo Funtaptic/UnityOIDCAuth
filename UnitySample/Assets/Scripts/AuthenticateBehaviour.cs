@@ -1,5 +1,4 @@
 using System;
-using System.Buffers.Text;
 using System.Collections.Generic;
 using System.Security.Claims;
 using System.Text;
@@ -20,7 +19,10 @@ public class AuthenticateBehaviour : MonoBehaviour
             return null;
         }
 
-        var node = Encoding.UTF8.GetString(Base64Url.DecodeFromChars(strArray[1].AsSpan()));
+        var payload = strArray[1].Replace('-', '+').Replace('_', '/');
+        // JWT payloads use base64url without trailing padding.
+        payload = payload.PadRight(payload.Length + (4 - payload.Length % 4) % 4, '=');
+        var node = Encoding.UTF8.GetString(Convert.FromBase64String(payload));
 
         var dictionary = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(node);
         var claimList = new List<Claim>();
@@ -59,12 +61,12 @@ public class AuthenticateBehaviour : MonoBehaviour
         {
             case SignedOut notAuthenticatedStateBehaviour:
             {
-                if (GUILayout.Button("Sign in", GUILayout.Height(250), GUILayout.Width(200)))
+                if (GUILayout.Button("Sign in", GUILayout.Height(200), GUILayout.Width(200)))
                 {
                     _ = notAuthenticatedStateBehaviour.AuthenticateAsync();
                 }
 
-                if (GUILayout.Button("Register", GUILayout.Height(250), GUILayout.Width(200)))
+                if (GUILayout.Button("Register", GUILayout.Height(200), GUILayout.Width(200)))
                 {
                     _ = notAuthenticatedStateBehaviour.RegisterAsync();
                 }
@@ -79,7 +81,7 @@ public class AuthenticateBehaviour : MonoBehaviour
                     GUILayout.Label($"{claim.Type}: {claim.Value}");
                 }
 
-                if (GUILayout.Button("Sign out", GUILayout.Height(250), GUILayout.Width(200)))
+                if (GUILayout.Button("Sign out", GUILayout.Height(200), GUILayout.Width(200)))
                 {
                    authenticatedStateBehaviour.LogOut();
                 }

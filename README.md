@@ -12,7 +12,7 @@ The package provides:
   requested scopes, and token-cache filename.
 - Sign-in and sign-out flows using the system browser appropriate for each
   platform: a loopback browser callback on Windows and macOS, Chrome Custom Tabs
-  on Android, and `ASWebAuthenticationSession` on iOS.
+  on Android, `ASWebAuthenticationSession` on iOS, and a browser popup on WebGL.
 - `SignedIn` and `SignedOut` states, exposed through `AuthHelper.State` and the
   `StateChanged` event, so game code can react to authentication changes.
 - Local persistence of access, identity, and refresh tokens in
@@ -57,6 +57,50 @@ separate clients for each platform. During a build, the package adds the Android
 scheme to the generated manifest and the iOS scheme to `Info.plist`. A build will
 fail with a clear validation error if the asset is missing or the scheme for the
 selected mobile platform is empty.
+
+## WebGL
+
+WebGL uses the existing `AuthenticateAsync`, `RegisterAsync`, `GetUserInfoAsync`,
+refresh and `LogOut` APIs. It uses a popup for authorization and logout, and
+`UnityWebRequest` for discovery, signing keys, token exchange, refresh and user info.
+Authorization Code with PKCE and callback state validation remain handled by Duende.
+
+1. Keep **WebGL Callback Path** in `FuntapticOidcSettings` at its default,
+   `oidc-callback.html`. Every WebGL build includes this page beside `index.html`.
+2. Host the entire build over HTTPS (HTTP localhost is suitable for local testing).
+   For a game at `https://example.com/game/index.html`, register
+   `https://example.com/game/oidc-callback.html` as **both** the login redirect URI
+   and post-logout redirect URI at your identity provider. Register each development
+   origin/port separately. A directory URL must end in `/`.
+3. Configure a **public browser client** with Authorization Code and PKCE; do not
+   embed a client secret. Allow the game's origin (`https://example.com`) through
+   CORS on discovery, JWKS, token and user-info endpoints. Enable refresh tokens
+   for that browser client if requesting `offline_access`.
+4. After choosing sign-in, registration or logout in the game, click **Continue**
+   in the browser overlay. This click opens the popup even when asynchronous
+   discovery has consumed the original user gesture. Allow popups if prompted.
+   Closing the popup or selecting **Cancel** ends the operation.
+
+The game stays loaded during authentication. The popup must return to the exact
+callback origin and path; codes are passed to Duende without premature URL decoding.
+The browser session times out and cleans up its popup/overlay on cancellation.
+Local token-cache writes and deletions are flushed asynchronously to IndexedDB;
+closing the tab immediately can interrupt a flush. As with native file caching,
+tokens are not encrypted by this package.
+
+If you customize **WebGL Callback Path**, deploy a plain callback page at that URL
+on the same origin as the game; the generated page is always named
+`oidc-callback.html`. Query strings and fragments are not allowed in the configured
+callback URL. Provider callbacks must use a query or fragment response, not
+`form_post`. The popup flow requires its window reference to survive navigation:
+COOP headers such as `Cross-Origin-Opener-Policy: same-origin` can sever it. Use a
+popup-compatible hosting policy, and ensure embedded games are allowed to open
+popups. Web builds that require strict cross-origin isolation need a different
+hosting/authentication arrangement.
+
+The Unity Editor continues to use the desktop browser flow, even with WebGL
+selected as the build target. Test browser behavior in a served WebGL build.
+Verification commands and the hosted-login checklist are in [Tests/WebGL](Tests/WebGL/README.md).
 
 ## Android incremental builds (0.2.3)
 

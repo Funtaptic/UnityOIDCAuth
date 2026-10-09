@@ -34,6 +34,12 @@ namespace Funtaptic.OIDC.Editor
                 throw new BuildFailedException(
                     "OIDC settings IOSScheme must not be empty.");
             }
+
+            if (report.summary.platform == BuildTarget.WebGL &&
+                string.IsNullOrWhiteSpace(settings.WebGLCallbackPath))
+            {
+                throw new BuildFailedException("OIDC settings WebGLCallbackPath must not be empty.");
+            }
         }
     }
 }
