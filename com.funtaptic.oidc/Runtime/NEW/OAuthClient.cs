@@ -110,6 +110,40 @@ namespace Funtaptic.OIDC
             return tokens;
         }
 
+        public async Awaitable<Either<UserInfoResult, Error>> GetUserInfoAsync(
+            string accessToken, CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (string.IsNullOrWhiteSpace(accessToken))
+                throw new ArgumentException("An access token is required.", nameof(accessToken));
+
+            if (string.IsNullOrWhiteSpace(_discovery.UserInfoEndpoint))
+                return new Error("The provider does not advertise a user-info endpoint.");
+
+            if (!Uri.TryCreate(_discovery.UserInfoEndpoint, UriKind.Absolute, out var endpoint) ||
+                endpoint.Scheme != Uri.UriSchemeHttps || !string.IsNullOrEmpty(endpoint.UserInfo) ||
+                !string.IsNullOrEmpty(endpoint.Fragment))
+                return new Error("The provider user-info endpoint must be an HTTPS URL.");
+
+            using var request = UnityWebRequest.Get(endpoint.AbsoluteUri);
+            request.SetRequestHeader("Authorization", "Bearer " + accessToken);
+            // Do not forward the access token to a redirected endpoint.
+            request.redirectLimit = 0;
+            var result = await request.SendAsync<Dictionary<string, JsonElement>>(cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (result.IsRight)
+                return result.Right;
+
+            var values = result.Left;
+            if (values.ContainsKey("error") || !values.TryGetValue("sub", out var subject) ||
+                subject.ValueKind != JsonValueKind.String || string.IsNullOrWhiteSpace(subject.GetString()))
+                return new Error("The provider returned an invalid user-info response.");
+
+            return new UserInfoResult(values);
+        }
+
         public async Awaitable LogoutAsync(
             string idToken,
             CancellationToken cancellationToken = default)

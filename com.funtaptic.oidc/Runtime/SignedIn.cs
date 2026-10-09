@@ -35,25 +35,25 @@ namespace Funtaptic.OIDC
             }
         }
 
-        // public async Task<UserInfoResult> GetUserInfoAsync(CancellationToken cancellationToken = default)
-        // {
-        //     using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken,
-        //         _disposeCancellationTokenSource.Token);
-        //
-        //     var client = await _authHelper.GetClientAsync();
-        //
-        //     if (client == null)
-        //         throw new InvalidOperationException("Client is null");
-        //
-        //     var userInfo = await client.GetUserInfoAsync(
-        //         State.AccessToken,
-        //         cts.Token);
-        //
-        //     if (userInfo.IsError)
-        //         throw new InvalidOperationException(userInfo.Error);
-        //
-        //     return userInfo;
-        // }
+        public async Task<UserInfoResult> GetUserInfoAsync(CancellationToken cancellationToken = default)
+        {
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken,
+                _disposeCancellationTokenSource.Token);
+            cts.Token.ThrowIfCancellationRequested();
+
+            var client = await _authHelper.GetClientAsync();
+            cts.Token.ThrowIfCancellationRequested();
+
+            if (client == null)
+                throw new InvalidOperationException("Failed to create the authentication client.");
+
+            var userInfo = await client.GetUserInfoAsync(State.AccessToken, cts.Token);
+
+            if (userInfo.IsRight)
+                throw new InvalidOperationException(userInfo.Right.Message);
+
+            return userInfo.Left;
+        }
 
         private async Task DoLogOutAsync()
         {
@@ -91,6 +91,10 @@ namespace Funtaptic.OIDC
                 if (refreshed)
                     return;
             }
+            catch (OperationCanceledException) when (_disposeCancellationTokenSource.IsCancellationRequested)
+            {
+                return;
+            }
             catch (Exception ex)
             {
                 Debug.LogException(ex);
@@ -104,6 +108,7 @@ namespace Funtaptic.OIDC
         {
             Debug.Log("Refreshing token...");
             var client = await _authHelper.GetClientAsync();
+            _disposeCancellationTokenSource.Token.ThrowIfCancellationRequested();
 
             if (client == null)
             {
@@ -113,6 +118,7 @@ namespace Funtaptic.OIDC
 
             var result =
                 await client.RefreshAsync(State.RefreshToken, _disposeCancellationTokenSource.Token);
+            _disposeCancellationTokenSource.Token.ThrowIfCancellationRequested();
 
             if (result.IsRight)
             {
@@ -154,7 +160,9 @@ namespace Funtaptic.OIDC
 
         public void Dispose()
         {
-            _disposeCancellationTokenSource?.Dispose();
+            // Cancel pending requests when leaving this state. Keep the source available
+            // so asynchronous continuations can still observe cancellation.
+            _disposeCancellationTokenSource.Cancel();
         }
     }
 }

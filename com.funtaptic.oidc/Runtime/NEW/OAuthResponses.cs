@@ -1,4 +1,7 @@
 using System;
+using System.Collections.Generic;
+using System.Security.Claims;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace Funtaptic.OIDC
@@ -12,8 +15,48 @@ namespace Funtaptic.OIDC
 
         [JsonPropertyName("token_endpoint")] public string TokenEndpoint { get; set; }
 
+        [JsonPropertyName("userinfo_endpoint")] public string UserInfoEndpoint { get; set; }
+
         [JsonPropertyName("end_session_endpoint")]
         public string EndSessionEndpoint { get; set; }
+    }
+
+    public sealed class UserInfoResult
+    {
+        public IReadOnlyList<Claim> Claims { get; }
+
+        internal UserInfoResult(Dictionary<string, JsonElement> values)
+        {
+            var claims = new List<Claim>();
+            foreach (var value in values)
+            {
+                if (value.Value.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var item in value.Value.EnumerateArray())
+                        AddClaim(claims, value.Key, item);
+                }
+                else
+                    AddClaim(claims, value.Key, value.Value);
+            }
+
+            Claims = claims.AsReadOnly();
+        }
+
+        private static void AddClaim(List<Claim> claims, string name, JsonElement value)
+        {
+            if (value.ValueKind == JsonValueKind.Null || value.ValueKind == JsonValueKind.Undefined)
+                return;
+
+            var valueType = value.ValueKind switch
+            {
+                JsonValueKind.String => ClaimValueTypes.String,
+                JsonValueKind.True or JsonValueKind.False => ClaimValueTypes.Boolean,
+                JsonValueKind.Number => value.TryGetInt64(out _) ? ClaimValueTypes.Integer64 : ClaimValueTypes.Double,
+                _ => "JSON"
+            };
+            claims.Add(new Claim(name,
+                value.ValueKind == JsonValueKind.String ? value.GetString() : value.GetRawText(), valueType));
+        }
     }
 
     public sealed class OAuthTokens

@@ -4,6 +4,7 @@ using System.Linq;
 using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
+using System.Threading.Tasks;
 using Funtaptic.OIDC;
 using UnityEngine;
 
@@ -82,8 +83,24 @@ public class AuthenticateBehaviour : MonoBehaviour
                     authenticatedStateBehaviour.LogOut();
                 }
 
+                if (GUILayout.Button("Refresh", GUILayout.Height(200), GUILayout.Width(200)))
+                {
+                    _ = GetUserInfoAsync(authenticatedStateBehaviour);
+                }
+
                 break;
             }
+        }
+    }
+
+    private async Awaitable GetUserInfoAsync(SignedIn signedIn)
+    {
+        Debug.Log("GetUserInfoAsync");
+        var result = await signedIn.GetUserInfoAsync();
+        Debug.Log($"GetUserInfoAsync result {result.Claims.Count}");
+        foreach (var claim in result.Claims)
+        {
+            Debug.Log($"{claim.Type}: {claim.Value}");
         }
     }
 }
