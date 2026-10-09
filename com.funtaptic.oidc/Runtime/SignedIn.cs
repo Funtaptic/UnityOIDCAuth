@@ -65,7 +65,7 @@ namespace Funtaptic.OIDC
             try
             {
                 //State.IdentityToken
-                await client.LogoutAsync(default);
+                await client.LogoutAsync(State.IdentityToken, default);
             }
             catch (Exception e)
             {

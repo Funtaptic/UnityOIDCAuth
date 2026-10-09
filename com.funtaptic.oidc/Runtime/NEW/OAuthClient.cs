@@ -45,7 +45,7 @@ namespace Funtaptic.OIDC
             _discovery = discovery;
         }
 
-        public async Awaitable<Either<OAuthTokens, Error>> LoginAsync(TimeSpan timeout,
+        public async Awaitable<Either<OAuthTokens, Error>> LoginAsync(TimeSpan timeout,IReadOnlyDictionary<string, string> frontChannelExtraParameters,
             CancellationToken cancellationToken)
         {
             var verifier = CreateRandomValue();
@@ -54,6 +54,13 @@ namespace Funtaptic.OIDC
 
             var builder = new UriBuilder(_discovery.AuthorizationEndpoint);
             var query = HttpUtility.ParseQueryString(builder.Query);
+            if (frontChannelExtraParameters != null)
+            {
+                foreach (var parameter in frontChannelExtraParameters)
+                    query[parameter.Key] = parameter.Value;
+            }
+
+            // Required protocol values take precedence over extra parameters.
             query["response_type"] = "code";
             query["client_id"] = _clientSettings.ClientId;
             query["redirect_uri"] = _clientSettings.RedirectUri;
@@ -69,7 +76,7 @@ namespace Funtaptic.OIDC
                 Timeout = timeout
             };
             var browserResult =
-                await _clientSettings.Browser.AuthorizeAsync(browserOptions,
+                await _clientSettings.Browser.InvokeAsync(browserOptions,
                     cancellationToken);
 
             if (browserResult.IsRight)
@@ -103,8 +110,13 @@ namespace Funtaptic.OIDC
             return tokens;
         }
 
-        public async Awaitable LogoutAsync(CancellationToken cancellationToken = default)
+        public async Awaitable LogoutAsync(
+            string idToken,
+            CancellationToken cancellationToken = default)
         {
+            if (string.IsNullOrWhiteSpace(idToken))
+                throw new ArgumentException("An ID token is required.", nameof(idToken));
+
             if (string.IsNullOrWhiteSpace(_discovery.EndSessionEndpoint))
                 throw new InvalidOperationException("The provider does not advertise a logout endpoint.");
 
@@ -117,17 +129,24 @@ namespace Funtaptic.OIDC
             var builder = new UriBuilder(endpoint);
             var query = HttpUtility.ParseQueryString(builder.Query);
             query["client_id"] = _clientSettings.ClientId;
+            query["id_token_hint"] = idToken;
             query["post_logout_redirect_uri"] = _clientSettings.PostLogoutRedirectUri;
             query["state"] = state;
             builder.Query = query.ToString();
 
-            var result = await _clientSettings.Browser.AuthorizeAsync(
-                new BrowserOptions(builder.Uri.AbsoluteUri, _clientSettings.RedirectUri), cancellationToken);
+            var result = await _clientSettings.Browser.InvokeAsync(
+                new BrowserOptions(
+                    builder.Uri.AbsoluteUri,
+                    _clientSettings.PostLogoutRedirectUri),
+                cancellationToken);
+
             cancellationToken.ThrowIfCancellationRequested();
+
             if (result.IsRight)
                 throw new InvalidOperationException(result.Right.Message);
 
-            if (!UriHelpers.IsExpectedCallback(result.Left, new Uri(_clientSettings.PostLogoutRedirectUri)))
+            if (!UriHelpers.IsExpectedCallback(
+                    result.Left, new Uri(_clientSettings.PostLogoutRedirectUri)))
                 throw new InvalidOperationException("The logout callback did not match the configured redirect.");
 
             var fields = HttpUtility.ParseQueryString(result.Left.Query);
@@ -135,6 +154,7 @@ namespace Funtaptic.OIDC
             if (states == null || states.Length != 1 ||
                 !string.Equals(states[0], state, StringComparison.Ordinal))
                 throw new InvalidOperationException("The logout callback state did not match this attempt.");
+
             if (fields.GetValues("error") != null)
                 throw new InvalidOperationException("The provider declined logout.");
         }

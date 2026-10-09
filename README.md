@@ -9,15 +9,17 @@ not provide or host the identity service itself.
 The package provides:
 
 - An `AuthHelper` component for configuring the identity-provider URL, client ID,
-  requested scopes, and token-cache filename.
+  requested scopes, and token-cache identifier.
 - Sign-in and sign-out flows using the system browser appropriate for each
   platform: a loopback browser callback on Windows and macOS, Chrome Custom Tabs
   on Android, `ASWebAuthenticationSession` on iOS, and a browser popup on WebGL.
 - `SignedIn` and `SignedOut` states, exposed through `AuthHelper.State` and the
   `StateChanged` event, so game code can react to authentication changes.
 - Local persistence of access, identity, and refresh tokens in
-  `Application.persistentDataPath`, allowing a session to be restored when the
-  application starts.
+  `PlayerPrefs`, allowing a session to be restored when the application starts.
+  `CacheFileName` remains the cache identifier for compatibility; the preference
+  key is `Funtaptic.OIDC.<CacheFileName>`. Existing file caches are not migrated,
+  so users with an old cache must sign in once after upgrading.
 - Automatic access-token refresh. If refreshing fails, the cached session is
   removed and the user returns to the signed-out state.
 - User-info requests and identity-provider logout for authenticated users.
@@ -76,17 +78,16 @@ Authorization Code with PKCE and callback state validation remain handled by Due
    embed a client secret. Allow the game's origin (`https://example.com`) through
    CORS on discovery, JWKS, token and user-info endpoints. Enable refresh tokens
    for that browser client if requesting `offline_access`.
-4. After choosing sign-in, registration or logout in the game, click **Continue**
-   in the browser overlay. This click opens the popup even when asynchronous
-   discovery has consumed the original user gesture. Allow popups if prompted.
-   Closing the popup or selecting **Cancel** ends the operation.
+4. Choosing sign-in, registration or logout in the game opens the OAuth page
+   directly in a new window. If the browser blocks it, allow popups for the
+   game's site and try again. Closing the window ends the operation.
 
 The game stays loaded during authentication. The popup must return to the exact
 callback origin and path; codes are passed to Duende without premature URL decoding.
-The browser session times out and cleans up its popup/overlay on cancellation.
-Local token-cache writes and deletions are flushed asynchronously to IndexedDB;
-closing the tab immediately can interrupt a flush. As with native file caching,
-tokens are not encrypted by this package.
+The browser session times out and cleans up its popup on cancellation.
+Token-cache writes and deletions call `PlayerPrefs.Save()`; Unity manages WebGL
+persistence in IndexedDB, with a 1 MB total PlayerPrefs limit. No custom filesystem
+flush is required. Tokens are stored without encryption.
 
 If you customize **WebGL Callback Path**, deploy a plain callback page at that URL
 on the same origin as the game; the generated page is always named

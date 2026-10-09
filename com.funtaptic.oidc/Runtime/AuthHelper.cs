@@ -1,5 +1,4 @@
 using System;
-using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Net.Sockets;
@@ -10,6 +9,7 @@ using System.Threading.Tasks;
 // using Funtaptic.OIDC.IOS;
 // using Funtaptic.OIDC.WebGL;
 using Funtaptic.OIDC.Standalone.Funtaptic.OIDC.Auth;
+using Funtaptic.OIDC.WebGL;
 using UnityEngine;
 
 namespace Funtaptic.OIDC
@@ -24,7 +24,7 @@ namespace Funtaptic.OIDC
 
         [SerializeField] private string _scopes = "openid profile roles offline_access";
 
-        private string CacheFilePath => $"{Application.persistentDataPath}/{_cacheFileName}.json";
+        private string CacheKey => $"Funtaptic.OIDC.{_cacheFileName}";
 
         public IAuthState State { get; private set; }
 
@@ -42,6 +42,7 @@ namespace Funtaptic.OIDC
             set => _clientId = value;
         }
 
+        // Retained for API and serialized-scene compatibility; this now names a PlayerPrefs entry.
         public string CacheFileName
         {
             get => _cacheFileName;
@@ -56,15 +57,15 @@ namespace Funtaptic.OIDC
 
         public void DeleteCache()
         {
-            File.Delete(CacheFilePath);
-            //WebGLBrowser.FlushCache();
+            PlayerPrefs.DeleteKey(CacheKey);
+            PlayerPrefs.Save();
         }
 
         public bool TryLoadFromCache(out AuthState cache)
         {
-            if (File.Exists(CacheFilePath))
+            if (PlayerPrefs.HasKey(CacheKey))
             {
-                var cacheContent = File.ReadAllText(CacheFilePath);
+                var cacheContent = PlayerPrefs.GetString(CacheKey);
                 cache = JsonSerializer.Deserialize<AuthState>(cacheContent);
                 return true;
             }
@@ -75,8 +76,8 @@ namespace Funtaptic.OIDC
 
         public void SaveToCache(AuthState cache)
         {
-            File.WriteAllText(CacheFilePath, JsonSerializer.Serialize(cache));
-            //WebGLBrowser.FlushCache();
+            PlayerPrefs.SetString(CacheKey, JsonSerializer.Serialize(cache));
+            PlayerPrefs.Save();
         }
 
         private OAuthClient _client;
@@ -139,13 +140,12 @@ namespace Funtaptic.OIDC
             {
                 case RuntimePlatform.WebGLPlayer:
                 {
-                    // var redirectUri = WebGLBrowser.ResolveRedirectUri(
-                    //     Application.absoluteURL, OidcSettings.Instance.WebGLCallbackPath);
-                    // clientOptions.RedirectUri = redirectUri;
-                    // clientOptions.PostLogoutRedirectUri = redirectUri;
-                    // clientOptions.Browser = new WebGLBrowser();
-                    // break;
-                    throw new NotImplementedException();
+                    var redirectUri = WebGLBrowser.ResolveRedirectUri(
+                        Application.absoluteURL, OidcSettings.Instance.WebGLCallbackPath);
+                    clientOptions.RedirectUri = redirectUri;
+                    clientOptions.PostLogoutRedirectUri = redirectUri;
+                    clientOptions.Browser = new WebGLBrowser();
+                    break;
                 }
                 case RuntimePlatform.OSXPlayer:
                 case RuntimePlatform.OSXEditor:

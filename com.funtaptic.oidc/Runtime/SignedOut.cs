@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
@@ -60,10 +61,16 @@ namespace Funtaptic.OIDC
                 if (client == null)
                     return false;
 
-                // if (register)
-                //     request.FrontChannelExtraParameters.Add("prompt", "create");
+                Dictionary<string, string> frontChannelExtraParameters = null;
+                if (register)
+                {
+                    frontChannelExtraParameters = new Dictionary<string, string>
+                    {
+                        { "prompt", "create" }
+                    };
+                }
 
-                var result = await client.LoginAsync(TimeSpan.FromSeconds(300), cts.Token);
+                var result = await client.LoginAsync(TimeSpan.FromSeconds(300), frontChannelExtraParameters, cts.Token);
 
                 if (result.IsRight)
                 {

@@ -13,7 +13,7 @@ namespace Funtaptic.OIDC
         /// Honor options.Timeout and caller cancellation, returning an error and releasing browser/listener resources.
         /// The caller validates the callback before token exchange. Null options throw an argument exception.
         /// </summary>
-        Awaitable<Either<Uri, Error>> AuthorizeAsync(BrowserOptions options,
+        Awaitable<Either<Uri, Error>> InvokeAsync(BrowserOptions options,
             CancellationToken cancellationToken);
     }
 }

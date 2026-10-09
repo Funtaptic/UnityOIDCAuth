@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
@@ -8,8 +9,7 @@ using UnityEngine;
 
 public class AuthenticateBehaviour : MonoBehaviour
 {
-    [SerializeField]
-    private AuthHelper _authHelper;
+    [SerializeField] private AuthHelper _authHelper;
 
     private static List<Claim> Parse(string identityToken)
     {
@@ -42,7 +42,6 @@ public class AuthenticateBehaviour : MonoBehaviour
 
     private void OnGUI()
     {
-
         var authState = _authHelper.State;
 
         if (authState == null)
@@ -76,14 +75,11 @@ public class AuthenticateBehaviour : MonoBehaviour
             case SignedIn authenticatedStateBehaviour:
             {
                 var claims = Parse(authenticatedStateBehaviour.State.IdentityToken);
-                foreach (var claim in claims)
-                {
-                    GUILayout.Label($"{claim.Type}: {claim.Value}");
-                }
+                GUILayout.Label($"Name: {claims.FirstOrDefault(a => a.Type == "name")?.Value}");
 
                 if (GUILayout.Button("Sign out", GUILayout.Height(200), GUILayout.Width(200)))
                 {
-                   authenticatedStateBehaviour.LogOut();
+                    authenticatedStateBehaviour.LogOut();
                 }
 
                 break;

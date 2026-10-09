@@ -24,7 +24,7 @@ namespace Funtaptic.OIDC.Standalone
             return uri;
         }
 
-        public async Awaitable<Either<Uri, Error>> AuthorizeAsync(BrowserOptions options,
+        public async Awaitable<Either<Uri, Error>> InvokeAsync(BrowserOptions options,
             CancellationToken cancellationToken)
         {
             try
