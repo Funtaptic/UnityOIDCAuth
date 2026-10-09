@@ -1,169 +1,104 @@
-// using System;
-// using System.Threading;
-// using System.Threading.Tasks;
-// using System.Net;
-//
-// using UnityEngine;
-// using UnityEngine.Android;
-//
-// namespace Funtaptic.OIDC.Android
-// {
-//     public class AndroidChromeTabsBrowser : IBrowser
-//     {
-//         public const string ActivityClassName = "com.funtaptic.AuthRedirectActivity";
-//
-//         private readonly string _scheme;
-//
-//         public AndroidChromeTabsBrowser(string scheme)
-//         {
-//             if (string.IsNullOrWhiteSpace(scheme))
-//                 throw new ArgumentException("Android callback scheme must not be empty.", nameof(scheme));
-//
-//             _scheme = scheme;
-//         }
-//
-//         private class DisposableAction : IDisposable
-//         {
-//             private Action _action;
-//
-//             public DisposableAction(Action action)
-//             {
-//                 _action = action;
-//             }
-//
-//             public void Dispose()
-//             {
-//                 _action?.Invoke();
-//                 _action = null;
-//             }
-//         }
-//
-//         public class RedirectCallbackProxy : AndroidJavaProxy
-//         {
-//             private static event Action<string> Callback;
-//
-//             private static RedirectCallbackProxy _instance;
-//
-//             public static IDisposable Register(Action<string> callback)
-//             {
-//                 Callback += callback;
-//                 return new DisposableAction(() => Callback -= callback);
-//             }
-//
-//             [RuntimeInitializeOnLoadMethod]
-//             private static void AutoInit()
-//             {
-//                 if (Application.platform != RuntimePlatform.Android)
-//                     return;
-//
-//                 using var javaClass = new AndroidJavaClass(ActivityClassName);
-//
-//                 _instance = new RedirectCallbackProxy();
-//                 javaClass.SetStatic("callback", _instance);
-//             }
-//
-//             public RedirectCallbackProxy() : base("com.funtaptic.RedirectCallback")
-//             {
-//             }
-//
-//             public void callback(string uri)
-//             {
-//                 Callback?.Invoke(uri);
-//             }
-//         }
-//
-//         public static class AndroidChromeCustomTab
-//         {
-//             public static void LaunchUrl(string url)
-//             {
-//                 if (Application.platform != RuntimePlatform.Android)
-//                     throw new InvalidOperationException("This method can only be called on Android");
-//
-// #if UNITY_ANDROID
-//                 using var intentBuilder = new AndroidJavaObject("androidx.browser.customtabs.CustomTabsIntent$Builder");
-//                 using var intent = intentBuilder.Call<AndroidJavaObject>("build");
-//                 using var uriClass = new AndroidJavaClass("android.net.Uri");
-//                 using var uri = uriClass.CallStatic<AndroidJavaObject>("parse", url);
-//                 intent.Call("launchUrl", AndroidApplication.currentActivity, uri);
-// #endif
-//             }
-//         }
-//
-//         private IDisposable SubscribeAppFocused(Action<bool> onFocusChanged)
-//         {
-//             Application.focusChanged += onFocusChanged;
-//             return new DisposableAction(() => { Application.focusChanged -= onFocusChanged; });
-//         }
-//
-//         public async Task<BrowserResult> InvokeAsync(BrowserOptions options,
-//             CancellationToken cancellationToken)
-//         {
-//             try
-//             {
-//                 var completionSource = new TaskCompletionSource<BrowserResult>();
-//
-//                 using var autoExpire = new CancellationTokenSource(options.Timeout);
-//
-//                 using var canceled = cancellationToken.Register(() => { completionSource.SetCanceled(); });
-//
-//                 using var registration = autoExpire.Token.Register(() =>
-//                 {
-//                     completionSource.SetResult(new BrowserResult()
-//                     {
-//                         ResultType = BrowserResultType.Timeout,
-//                         Error = "Timed out"
-//                     });
-//                 });
-//
-//                 using var callbackSub = RedirectCallbackProxy.Register(url =>
-//                 {
-//                     try
-//                     {
-//                         var uri = new Uri(url);
-//                         if (!string.Equals(uri.Scheme, _scheme, StringComparison.OrdinalIgnoreCase))
-//                         {
-//                             throw new InvalidOperationException(
-//                                 $"Unexpected Android callback URI scheme '{uri.Scheme}'.");
-//                         }
-//
-//                         var queryParams = WebUtility.UrlDecode(uri.Query);
-//
-//                         completionSource.SetResult(new BrowserResult()
-//                         {
-//                             ResultType = BrowserResultType.Success,
-//                             Response = queryParams
-//                         });
-//                     }
-//                     catch (Exception e)
-//                     {
-//                         completionSource.SetException(e);
-//                     }
-//                 });
-//
-//                 using var focusSub = SubscribeAppFocused(isFocused =>
-//                 {
-//                     if (isFocused == false)
-//                         return;
-//
-//                     completionSource.TrySetResult(new BrowserResult()
-//                     {
-//                         ResultType = BrowserResultType.UserCancel,
-//                         Error = "User cancelled"
-//                     });
-//                 });
-//
-//                 AndroidChromeCustomTab.LaunchUrl(options.StartUrl);
-//
-//                 return await completionSource.Task;
-//             }
-//             catch (Exception e)
-//             {
-//                 return new BrowserResult()
-//                 {
-//                     ResultType = BrowserResultType.UnknownError,
-//                     Error = e.Message
-//                 };
-//             }
-//         }
-//     }
-// }
+using System;
+using System.Threading;
+using System.Threading.Tasks;
+using UnityEngine;
+using UnityEngine.Android;
+using UnityEngine.Scripting;
+
+namespace Funtaptic.OIDC.Android
+{
+    public sealed class AndroidChromeTabsBrowser : IBrowser
+    {
+        public const string ActivityClassName = "com.funtaptic.AuthRedirectActivity";
+        private readonly string _scheme;
+        private static bool _running;
+
+        public AndroidChromeTabsBrowser(string scheme)
+        {
+            if (string.IsNullOrWhiteSpace(scheme))
+                throw new ArgumentException("Android callback scheme must not be empty.", nameof(scheme));
+            _scheme = scheme;
+        }
+
+        [Preserve]
+        public sealed class RedirectCallbackProxy : AndroidJavaProxy
+        {
+            private readonly TaskCompletionSource<string> _response;
+            public RedirectCallbackProxy(TaskCompletionSource<string> response)
+                : base("com.funtaptic.RedirectCallback") => _response = response;
+
+            [Preserve]
+            public void callback(string uri) => _response.TrySetResult(uri);
+        }
+
+        public async Awaitable<Either<Uri, Error>> InvokeAsync(BrowserOptions options,
+            CancellationToken cancellationToken = default)
+        {
+            if (options == null) throw new ArgumentNullException(nameof(options));
+#if UNITY_ANDROID && !UNITY_EDITOR
+            if (_running) return new Error("An Android authentication session is already running.");
+            if (cancellationToken.IsCancellationRequested) return new Error("Authentication was cancelled.");
+            if (options.Timeout <= TimeSpan.Zero) return new Error("Authentication timed out.");
+            _running = true;
+            var response = new TaskCompletionSource<string>();
+            var proxy = new RedirectCallbackProxy(response);
+            var lostFocus = false;
+            var returnedAt = double.PositiveInfinity;
+            void OnFocusChanged(bool focused)
+            {
+                if (!focused) lostFocus = true;
+                else if (lostFocus) returnedAt = Time.realtimeSinceStartupAsDouble;
+            }
+
+            Application.focusChanged += OnFocusChanged;
+            try
+            {
+                using var activity = new AndroidJavaClass(ActivityClassName);
+                activity.SetStatic("callback", proxy);
+                using var builder = new AndroidJavaObject("androidx.browser.customtabs.CustomTabsIntent$Builder");
+                using var intent = builder.Call<AndroidJavaObject>("build");
+                using var uriClass = new AndroidJavaClass("android.net.Uri");
+                using var uri = uriClass.CallStatic<AndroidJavaObject>("parse", options.StartUrl);
+                var started = Time.realtimeSinceStartupAsDouble;
+                intent.Call("launchUrl", AndroidApplication.currentActivity, uri);
+                while (!response.Task.IsCompleted)
+                {
+                    if (cancellationToken.IsCancellationRequested)
+                        return new Error("Authentication was cancelled.");
+                    if (Time.realtimeSinceStartupAsDouble - started >= options.Timeout.TotalSeconds)
+                        return new Error("Authentication timed out.");
+                    // Allow the redirect activity's callback to arrive before treating focus as dismissal.
+                    if (Time.realtimeSinceStartupAsDouble - returnedAt >= 1.0)
+                        return new Error("Authentication window was closed or cancelled.");
+                    await Awaitable.NextFrameAsync();
+                }
+
+                if (!Uri.TryCreate(response.Task.Result, UriKind.Absolute, out var callback) ||
+                    !string.Equals(callback.Scheme, _scheme, StringComparison.OrdinalIgnoreCase))
+                    return new Error("Unexpected Android callback URI.");
+                return callback;
+            }
+            catch (Exception exception)
+            {
+                return new Error(exception.Message);
+            }
+            finally
+            {
+                Application.focusChanged -= OnFocusChanged;
+                try
+                {
+                    using var activity = new AndroidJavaClass(ActivityClassName);
+                    activity.SetStatic<AndroidJavaObject>("callback", null);
+                }
+                finally
+                {
+                    GC.KeepAlive(proxy);
+                    _running = false;
+                }
+            }
+#else
+            throw new PlatformNotSupportedException("Chrome Custom Tabs requires an Android player build.");
+#endif
+        }
+    }
+}

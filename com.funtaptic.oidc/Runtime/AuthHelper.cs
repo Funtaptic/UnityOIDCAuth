@@ -5,8 +5,8 @@ using System.Net.Sockets;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-//using Funtaptic.OIDC.Android;
-// using Funtaptic.OIDC.IOS;
+using Funtaptic.OIDC.Android;
+using Funtaptic.OIDC.IOS;
 // using Funtaptic.OIDC.WebGL;
 using Funtaptic.OIDC.Standalone.Funtaptic.OIDC.Auth;
 using Funtaptic.OIDC.WebGL;
@@ -163,21 +163,19 @@ namespace Funtaptic.OIDC
                 }
                 case RuntimePlatform.Android:
                 {
-                    // var scheme = OidcSettings.Instance.AndroidScheme;
-                    // clientOptions.RedirectUri = $"{scheme}://login_callback";
-                    // clientOptions.PostLogoutRedirectUri = $"{scheme}://logout_callback";
-                    // clientOptions.Browser = new AndroidChromeTabsBrowser(scheme);
-                    // break;
-                    throw new NotImplementedException();
+                    var scheme = OidcSettings.Instance.AndroidScheme;
+                    clientOptions.RedirectUri = $"{scheme}://login_callback";
+                    clientOptions.PostLogoutRedirectUri = $"{scheme}://logout_callback";
+                    clientOptions.Browser = new AndroidChromeTabsBrowser(scheme);
+                    break;
                 }
                 case RuntimePlatform.IPhonePlayer:
                 {
-                    // var scheme = OidcSettings.Instance.IOSScheme;
-                    // clientOptions.RedirectUri = $"{scheme}://login_callback";
-                    // clientOptions.PostLogoutRedirectUri = $"{scheme}://logout_callback";
-                    // clientOptions.Browser = new IOSAuthenticationSessionBrowser(scheme);
-                    // break;
-                    throw new NotImplementedException();
+                    var scheme = OidcSettings.Instance.IOSScheme;
+                    clientOptions.RedirectUri = $"{scheme}://login_callback";
+                    clientOptions.PostLogoutRedirectUri = $"{scheme}://logout_callback";
+                    clientOptions.Browser = new IOSAuthenticationSessionBrowser(scheme);
+                    break;
                 }
                 default:
                     throw new NotSupportedException($"Unsupported platform: {Application.platform}");
