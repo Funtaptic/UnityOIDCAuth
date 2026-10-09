@@ -35,7 +35,7 @@ namespace Funtaptic.OIDC.Android
             CancellationToken cancellationToken = default)
         {
             if (options == null) throw new ArgumentNullException(nameof(options));
-#if UNITY_ANDROID && !UNITY_EDITOR
+#if UNITY_ANDROID
             if (_running) return new Error("An Android authentication session is already running.");
             if (cancellationToken.IsCancellationRequested) return new Error("Authentication was cancelled.");
             if (options.Timeout <= TimeSpan.Zero) return new Error("Authentication timed out.");
