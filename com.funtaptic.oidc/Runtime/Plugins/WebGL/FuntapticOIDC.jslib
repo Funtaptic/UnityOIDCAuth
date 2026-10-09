@@ -1,6 +1,9 @@
 mergeInto(LibraryManager.library, {
   $FuntapticOIDCWeb: {
     session: null,
+    openPopup: function (url) {
+      return window.open(url, '_blank', 'popup,width=520,height=720');
+    },
     capture: function (popup) {
       var session = FuntapticOIDCWeb.session;
       if (!session || !popup || popup !== session.popup) return false;
@@ -16,24 +19,8 @@ mergeInto(LibraryManager.library, {
         // Cross-origin access is expected while the provider is displayed.
       }
       return false;
-    }
-  },
-
-  FuntapticOIDCWebBegin__deps: ['$FuntapticOIDCWeb'],
-  FuntapticOIDCWebBegin: function (startPointer, endPointer) {
-    if (FuntapticOIDCWeb.session) return 0;
-    var start = UTF8ToString(startPointer);
-    var end = new URL(UTF8ToString(endPointer));
-    var popup = window.open(start, '_blank', 'popup,width=520,height=720');
-    var session = { end: end, popup: popup, status: 0, response: '', overlay: null };
-    FuntapticOIDCWeb.session = session;
-    // The callback can finish even while Unity's animation frames are suspended.
-    session.complete = function (callbackWindow) {
-      if (FuntapticOIDCWeb.session !== session) return false;
-      return FuntapticOIDCWeb.capture(callbackWindow);
-    };
-    window.FuntapticOIDCWebComplete = session.complete;
-    if (!popup) {
+    },
+    showPopupRetry: function (session, start) {
       // Unity callbacks or async setup can outlive Safari's user activation.
       // Retry synchronously from a native button, only when direct launch failed.
       var previousFocus = document.activeElement;
@@ -44,11 +31,11 @@ mergeInto(LibraryManager.library, {
       var panel = document.createElement('div');
       panel.style.cssText = 'background:white;padding:24px;border-radius:12px;max-width:360px;margin:16px;';
       var message = document.createElement('p');
-      message.textContent = 'Continue to open the authentication window.';
+      message.textContent = 'Do you want to open the authentication page?';
       message.setAttribute('aria-live', 'polite');
       var proceed = document.createElement('button');
       proceed.type = 'button';
-      proceed.textContent = 'Continue sign-in';
+      proceed.textContent = 'Continue';
       proceed.style.cssText = 'padding:12px;margin:4px;cursor:pointer;';
       var cancel = document.createElement('button');
       cancel.type = 'button';
@@ -61,7 +48,7 @@ mergeInto(LibraryManager.library, {
       };
       proceed.onclick = function () {
         if (FuntapticOIDCWeb.session !== session || session.status || session.popup) return;
-        session.popup = window.open(start, '_blank', 'popup,width=520,height=720');
+        session.popup = FuntapticOIDCWeb.openPopup(start);
         if (session.popup) session.dismiss();
         else message.textContent = 'The window is still blocked. Allow popups for this site, then try again.';
       };
@@ -81,6 +68,25 @@ mergeInto(LibraryManager.library, {
       document.body.appendChild(overlay);
       proceed.focus();
     }
+  },
+
+  FuntapticOIDCWebBegin__deps: ['$FuntapticOIDCWeb'],
+  FuntapticOIDCWebBegin: function (startPointer, endPointer) {
+    if (FuntapticOIDCWeb.session) return 0;
+    var start = UTF8ToString(startPointer);
+    var session = {
+      end: new URL(UTF8ToString(endPointer)),
+      popup: FuntapticOIDCWeb.openPopup(start),
+      status: 0, response: '', overlay: null
+    };
+    FuntapticOIDCWeb.session = session;
+    // The callback can finish even while Unity's animation frames are suspended.
+    session.complete = function (callbackWindow) {
+      if (FuntapticOIDCWeb.session !== session) return false;
+      return FuntapticOIDCWeb.capture(callbackWindow);
+    };
+    window.FuntapticOIDCWebComplete = session.complete;
+    if (!session.popup) FuntapticOIDCWeb.showPopupRetry(session, start);
     return 1;
   },
 

@@ -80,7 +80,7 @@ Authorization Code with PKCE and callback state validation remain handled by Due
    for that browser client if requesting `offline_access`.
 4. Choosing sign-in, registration or logout in the game opens the OAuth page
    directly in a new window. If the browser blocks it (for example, Safari after
-   asynchronous login setup), a **Continue sign-in** button lets you open it with
+   asynchronous login setup), a **Continue** button lets you open it with
    a fresh browser click or tap. If that is still blocked, allow popups for the
    game's site and retry. Cancel or closing the window before the callback ends the operation.
 
