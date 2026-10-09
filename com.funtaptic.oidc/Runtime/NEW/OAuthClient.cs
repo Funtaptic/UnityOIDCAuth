@@ -31,6 +31,11 @@ namespace Funtaptic.OIDC
         {
             Message = message;
         }
+        
+        public override string ToString()
+        {
+            return Message;
+        }
     }
 
     /// <summary>Call on Unity's main thread. Every outgoing HTTP request uses UnityWebRequest.</summary>
