@@ -13,13 +13,16 @@ namespace Funtaptic.OIDC.Editor
         {
             if (report.summary.platform != BuildTarget.WebGL)
                 return;
-            // No Unity loader or third-party resources: the opener reads this URL.
+            // Hand off synchronously before closing, even if the game's frames are suspended.
             File.WriteAllText(Path.Combine(report.summary.outputPath, "oidc-callback.html"),
                 "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\">" +
                 "<meta name=\"referrer\" content=\"no-referrer\">" +
                 "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">" +
                 "<title>Authentication complete</title><body>" +
-                "<p>Return to the game to finish authentication. This window will close automatically.</p></body></html>");
+                "<p>Return to the game to finish authentication. This window will close automatically.</p>" +
+                "<script>try { if (window.opener && window.opener.FuntapticOIDCWebComplete && " +
+                "window.opener.FuntapticOIDCWebComplete(window)) window.close(); } catch (_) {}</script>" +
+                "</body></html>");
         }
     }
 }

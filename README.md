@@ -79,11 +79,16 @@ Authorization Code with PKCE and callback state validation remain handled by Due
    CORS on discovery, JWKS, token and user-info endpoints. Enable refresh tokens
    for that browser client if requesting `offline_access`.
 4. Choosing sign-in, registration or logout in the game opens the OAuth page
-   directly in a new window. If the browser blocks it, allow popups for the
-   game's site and try again. Closing the window ends the operation.
+   directly in a new window. If the browser blocks it (for example, Safari after
+   asynchronous login setup), a **Continue sign-in** button lets you open it with
+   a fresh browser click or tap. If that is still blocked, allow popups for the
+   game's site and retry. Cancel or closing the window before the callback ends the operation.
 
 The game stays loaded during authentication. The popup must return to the exact
 callback origin and path; codes are passed to Duende without premature URL decoding.
+The generated callback page immediately hands its URL to the game and closes itself
+after the game accepts it, even while Unity frames are suspended in the background.
+Closing the window after this handoff does not cancel authentication.
 The browser session times out and cleans up its popup on cancellation.
 Token-cache writes and deletions call `PlayerPrefs.Save()`; Unity manages WebGL
 persistence in IndexedDB, with a 1 MB total PlayerPrefs limit. No custom filesystem
@@ -91,7 +96,10 @@ flush is required. Tokens are stored without encryption.
 
 If you customize **WebGL Callback Path**, deploy a plain callback page at that URL
 on the same origin as the game; the generated page is always named
-`oidc-callback.html`. Query strings and fragments are not allowed in the configured
+`oidc-callback.html`. Copy the generated page's callback script to preserve immediate
+handoff and automatic closing; a plain page relies on Unity polling the open popup.
+Rebuild and deploy both the game and callback page when updating this flow.
+Query strings and fragments are not allowed in the configured
 callback URL. Provider callbacks must use a query or fragment response, not
 `form_post`. The popup flow requires its window reference to survive navigation:
 COOP headers such as `Cross-Origin-Opener-Policy: same-origin` can sever it. Use a
