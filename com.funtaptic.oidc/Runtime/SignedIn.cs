@@ -107,17 +107,25 @@ namespace Funtaptic.OIDC
         private async Awaitable<bool> RefreshTokenAsync()
         {
             Debug.Log("Refreshing token...");
-            var client = await _authHelper.GetClientAsync();
-            _disposeCancellationTokenSource.Token.ThrowIfCancellationRequested();
-
-            if (client == null)
+            Either<OAuthTokens, Error> result;
+            if (!string.IsNullOrEmpty(State.RefreshTokenProvider))
             {
-                Debug.LogError("Failed to create client.");
-                return false;
+                var provider = _authHelper.TokenRefreshProvider;
+                if (provider == null || provider.Name != State.RefreshTokenProvider)
+                    throw new InvalidOperationException("The saved login requires its configured refresh provider.");
+                result = await provider.RefreshAsync(State.RefreshToken, _disposeCancellationTokenSource.Token);
             }
-
-            var result =
-                await client.RefreshAsync(State.RefreshToken, _disposeCancellationTokenSource.Token);
+            else
+            {
+                var client = await _authHelper.GetClientAsync();
+                _disposeCancellationTokenSource.Token.ThrowIfCancellationRequested();
+                if (client == null)
+                {
+                    Debug.LogError("Failed to create client.");
+                    return false;
+                }
+                result = await client.RefreshAsync(State.RefreshToken, _disposeCancellationTokenSource.Token);
+            }
             _disposeCancellationTokenSource.Token.ThrowIfCancellationRequested();
 
             if (result.IsRight)
@@ -150,6 +158,7 @@ namespace Funtaptic.OIDC
                     ? State.RefreshToken
                     : tokens.RefreshToken,
                 IdentityToken = tokens.IdToken,
+                RefreshTokenProvider = State.RefreshTokenProvider,
                 AccessTokenExpiration = tokens.ExpiresAt.Value
             };
 

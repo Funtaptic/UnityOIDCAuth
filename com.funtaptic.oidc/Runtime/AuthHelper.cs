@@ -27,6 +27,7 @@ namespace Funtaptic.OIDC
         private string CacheKey => $"Funtaptic.OIDC.{_cacheFileName}";
 
         public IAuthState State { get; private set; }
+        public ITokenRefreshProvider TokenRefreshProvider { get; set; }
 
         public event Action<IAuthState> StateChanged;
 

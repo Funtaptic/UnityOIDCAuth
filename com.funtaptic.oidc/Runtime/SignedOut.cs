@@ -71,6 +71,7 @@ namespace Funtaptic.OIDC
                 }
 
                 var result = await client.LoginAsync(TimeSpan.FromSeconds(300), frontChannelExtraParameters, cts.Token);
+                cts.Token.ThrowIfCancellationRequested();
 
                 if (result.IsRight)
                 {
