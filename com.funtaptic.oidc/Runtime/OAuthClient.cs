@@ -26,6 +26,7 @@ namespace Funtaptic.OIDC
     public class Error
     {
         public string Message { get; set; }
+        internal string Code { get; set; }
 
         public Error(string message)
         {

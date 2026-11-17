@@ -32,9 +32,26 @@ namespace Funtaptic.OIDC
 
             if (request.result != UnityWebRequest.Result.Success || request.responseCode < 200 ||
                 request.responseCode >= 300)
+            {
                 // Never include the response body: it may contain tokens or other sensitive data.
-                return new Error(
+                var error = new Error(
                     $"OAuth HTTP request failed (status {request.responseCode}). Check provider settings and connectivity.");
+                if (request.responseCode == 400)
+                {
+                    try
+                    {
+                        using var document = JsonDocument.Parse(request.downloadHandler.text);
+                        if (document.RootElement.ValueKind == JsonValueKind.Object &&
+                            document.RootElement.TryGetProperty("error", out var code) &&
+                            code.ValueKind == JsonValueKind.String)
+                            error.Code = code.GetString();
+                    }
+                    catch (JsonException)
+                    {
+                    }
+                }
+                return error;
+            }
             try
             {
                 var result = JsonSerializer.Deserialize<T>(request.downloadHandler.text);

@@ -10,6 +10,9 @@ namespace Funtaptic.OIDC
         private AuthHelper _authHelper;
 
         private Task _cTask;
+        private const int RefreshRetryDelaySeconds = 30;
+        private DateTimeOffset _nextRefreshAttempt;
+        private bool _lastRefreshSucceeded;
 
         public AuthState State { get; private set; }
 
@@ -26,13 +29,33 @@ namespace Funtaptic.OIDC
 
         public void Update()
         {
-            if (IsDoingWork)
+            if (IsDoingWork || DateTimeOffset.UtcNow < _nextRefreshAttempt)
                 return;
 
             if (State.AccessTokenExpiration < DateTimeOffset.Now)
             {
                 _cTask = TryRefreshAsync();
             }
+        }
+
+        public async Awaitable<bool> RefreshAccessTokenAsync(CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!ReferenceEquals(_authHelper.State, this))
+                return false;
+
+            if (!IsDoingWork)
+            {
+                if (!_lastRefreshSucceeded && DateTimeOffset.UtcNow < _nextRefreshAttempt)
+                    return false;
+                _cTask = TryRefreshAsync();
+            }
+
+            while (IsDoingWork)
+                await Awaitable.NextFrameAsync(cancellationToken);
+
+            cancellationToken.ThrowIfCancellationRequested();
+            return ReferenceEquals(_authHelper.State, this) && _lastRefreshSucceeded;
         }
 
         public async Task<UserInfoResult> GetUserInfoAsync(CancellationToken cancellationToken = default)
@@ -84,12 +107,10 @@ namespace Funtaptic.OIDC
 
         private async Task TryRefreshAsync()
         {
+            _lastRefreshSucceeded = false;
             try
             {
-                var refreshed = await RefreshTokenAsync();
-
-                if (refreshed)
-                    return;
+                _lastRefreshSucceeded = await RefreshTokenAsync();
             }
             catch (OperationCanceledException) when (_disposeCancellationTokenSource.IsCancellationRequested)
             {
@@ -99,9 +120,10 @@ namespace Funtaptic.OIDC
             {
                 Debug.LogException(ex);
             }
-
-            _authHelper.DeleteCache();
-            _authHelper.SetState(new SignedOut(_authHelper));
+            finally
+            {
+                _nextRefreshAttempt = DateTimeOffset.UtcNow.AddSeconds(RefreshRetryDelaySeconds);
+            }
         }
 
         private async Awaitable<bool> RefreshTokenAsync()
@@ -130,12 +152,11 @@ namespace Funtaptic.OIDC
 
             if (result.IsRight)
             {
-                if (string.Equals(result.Right.Message, "invalid_grant", StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(result.Right.Code, "invalid_grant", StringComparison.OrdinalIgnoreCase))
                 {
-                    // A revoked or expired refresh token is a normal sign-out
-                    // condition when restoring a cached session. TryRefreshAsync
-                    // clears the cache and transitions to SignedOut below.
                     Debug.Log("Saved authentication session has expired. Sign in again to continue.");
+                    _authHelper.DeleteCache();
+                    _authHelper.SetState(new SignedOut(_authHelper));
                 }
                 else
                 {
@@ -163,7 +184,6 @@ namespace Funtaptic.OIDC
             };
 
             _authHelper.SaveToCache(State);
-
             return true;
         }
 
