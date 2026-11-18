@@ -10,6 +10,7 @@ namespace Funtaptic.OIDC
         private AuthHelper _authHelper;
 
         private Task _cTask;
+        private const int RefreshLeadTimeSeconds = 60;
         private const int RefreshRetryDelaySeconds = 30;
         private DateTimeOffset _nextRefreshAttempt;
         private bool _lastRefreshSucceeded;
@@ -32,7 +33,7 @@ namespace Funtaptic.OIDC
             if (IsDoingWork || DateTimeOffset.UtcNow < _nextRefreshAttempt)
                 return;
 
-            if (State.AccessTokenExpiration < DateTimeOffset.Now)
+            if (State.AccessTokenExpiration <= DateTimeOffset.UtcNow.AddSeconds(RefreshLeadTimeSeconds))
             {
                 _cTask = TryRefreshAsync();
             }
